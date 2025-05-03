@@ -15,7 +15,9 @@ app.use(express.json());
 const connectDB = async () => {
   try {
     const client = await MongoClient.connect(process.env.DB_URL, {
-      ssl: true, // ✅ crucial for Atlas SSL
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      tlsAllowInvalidHostnames: false,
     });
     const db = client.db("nexuZ");
     const usersCollection = db.collection("usersCollection");
