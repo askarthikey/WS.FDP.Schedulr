@@ -14,7 +14,9 @@ app.use(express.json());
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    const client = await MongoClient.connect(process.env.DB_URL);
+    const client = await MongoClient.connect(process.env.DB_URL, {
+      ssl: true, // ✅ crucial for Atlas SSL
+    });
     const db = client.db("nexuZ");
     const usersCollection = db.collection("usersCollection");
     const workshopCollection = db.collection("workshopCollection");
