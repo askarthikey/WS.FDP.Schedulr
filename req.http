@@ -1,0 +1,80 @@
+###Register
+POST http://localhost:4000/userApi/signup
+Content-Type: application/json
+
+{
+    "username":"askarthikey",
+    "fullName":"Apoorva Sai Karthikey",
+    "email":"ask@gmail.com",
+    "password":"archskye",
+    "isBlocked":"false"
+}
+
+###Login
+POST http://localhost:4000/userApi/signin
+Content-Type: application/json
+
+{
+    "username":"askarthikey",
+    "password":"archskye"
+}
+
+###Workshop creation
+POST http://localhost:4000/workshopApi/create
+Content-Type: application/json
+
+{
+    "eventTitle":"Game Development",
+    "eventPosterLinks":["poster1","poster2"],
+    "brochureLinks":["brochure1","brochure2"],
+    "circularLinks":["circular1","circular2"],
+    "attendanceSheetLinks":["sheet1","sheet2"],
+    "eventOrganiserDetails":[
+        {"name":"zoro","designation":"associate prof"},
+        {"name":"nami","designation":"prof"}
+        ],
+    "category":["AI","Web Dev"],
+    "eventStDate":"2025-04-23",
+    "eventEndDate":"2025-04-23",
+    "eventStTime":"10:00 AM",
+    "resourcePersonDetails":[
+        {
+            "name":"Apoorva",
+            "designation":"hod",
+            "department":"cse"
+        },
+        {
+            "name":"luffy",
+            "designation":"asst prof",
+            "department":"ece"
+        }
+        ],
+    "editAccessUsers":["nami","sanji"],
+    "thumbnail":"url",
+    "photosLinks":["photolink1","photolink2"],
+    "participantInfo":["Total:150","CSE:50"],
+    "scheduleLinks":["schedule1","schedule2"],
+    "permissionLetterLinks":["permission1","permission2"],
+    "registrationLink":"link",
+    "feedbackLink":"link"
+}
+
+###Get all workshops
+GET http://localhost:4000/workshopApi/getwks
+
+###Get wks in sorted order
+GET http://localhost:4000/workshopApi/sortedgetwks
+
+###Get wks by category
+GET http://localhost:4000/workshopApi/selectedwks/AI
+
+###Edit Wks data
+PUT http://localhost:4000/workshopApi/editwks/Web%20Development
+Content-Type: application/json
+
+{
+    "feedbackLink":"feedback2"
+}
+
+###Delete wks data
+DELETE http://localhost:4000/workshopApi/delwks/Web%20Development

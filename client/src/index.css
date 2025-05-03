@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Add this to your CSS file or style tag */
+.resource-card {
+  @apply bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-shadow duration-200;
+}

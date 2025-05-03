@@ -1,0 +1,1314 @@
+import { useState, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+
+function EventDetails() {
+  const { eventTitle } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [workshop, setWorkshop] = useState(location.state?.workshop || null);
+  const [loading, setLoading] = useState(!location.state?.workshop);
+  const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // New state variables for edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [showModal, setShowModal] = useState(false);
+  const [, setDeleteConfirm] = useState(false);
+
+  // Get current user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+    setCurrentUser(user);
+  }, []);
+
+  // Fetch workshop details if not passed through navigation state
+  useEffect(() => {
+    if (!workshop) {
+      const fetchWorkshopDetails = async () => {
+        try {
+          setLoading(true);
+          // Decode the URL parameter to get the original title
+          const decodedTitle = decodeURIComponent(eventTitle);
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/workshop/${encodeURIComponent(decodedTitle)}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            setWorkshop(data.Workshop);
+          } else {
+            setError(data.message || 'Failed to fetch workshop details');
+          }
+        } catch (err) {
+          setError('Network error. Please try again later.');
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchWorkshopDetails();
+    }
+  }, [eventTitle, workshop]);
+
+  // Format date helper function
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (err) {
+      console.log("Error :",err)
+      return dateString;
+    }
+  };
+
+  // Check if current user has edit access
+  const hasEditAccess = (workshop) => {
+    if (!currentUser || !workshop) return false;
+    return workshop.editAccessUsers?.includes(currentUser.username);
+  };
+
+  // Get workshop status
+  const getWorkshopStatus = (workshop) => {
+    if (!workshop?.eventStDate) return "Unknown";
+    
+    const now = new Date();
+    const startDate = new Date(workshop.eventStDate);
+    const endDate = workshop.eventEndDate ? new Date(workshop.eventEndDate) : new Date(startDate);
+    
+    if (now < startDate) return "Upcoming";
+    if (now <= endDate) return "In Progress";
+    return "Completed";
+  };
+  
+  // Get status class for background color
+  const getStatusClass = (status) => {
+    switch(status) {
+      case "Upcoming": return "bg-blue-100 text-blue-800";
+      case "In Progress": return "bg-green-100 text-green-800";
+      case "Completed": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Open edit modal
+  const openEditModal = () => {
+    setIsEditing(true);
+    setEditData({});
+    setShowModal(true);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setIsEditing(false);
+    setShowModal(false);
+    setEditData({});
+    setDeleteConfirm(false);
+  };
+
+  // Handle edit submission
+  const handleEditSubmit = async () => {
+    if (!workshop) return;
+    
+    try {
+      // Check if there are any changes
+      if (Object.keys(editData).length === 0) {
+        alert('No changes to save.');
+        return;
+      }
+      
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Only send the modified data, not the entire merged object
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/editwks/${encodeURIComponent(workshop.eventTitle)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        // Send only the changed fields instead of the entire merged object
+        body: JSON.stringify(editData)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Update the workshop data locally with the new data
+        setWorkshop(prev => ({ ...prev, ...editData }));
+        setIsEditing(false);
+        setShowModal(false);
+        setEditData({});
+        alert('Workshop updated successfully!');
+      } else {
+        console.error('Update error:', data);
+        alert(data.message || 'Failed to update workshop');
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+      alert('Network error. Please try again.');
+    }
+  };
+
+  // Helper function to determine grid layout based on content
+  const determineGridLayout = (workshop) => {
+    // Count how many resource types are available
+    const resourceCount = [
+      workshop.eventPosterLinks?.length > 0,
+      workshop.brochureLinks?.length > 0,
+      workshop.scheduleLinks?.length > 0,
+      workshop.photosLinks?.length > 0,
+      workshop.permissionLetterLinks?.length > 0,
+      // Add any other resource types here
+    ].filter(Boolean).length;
+    
+    // Calculate items per type
+    // const totalItems = (
+    //   (workshop.eventPosterLinks?.length || 0) +
+    //   (workshop.brochureLinks?.length || 0) +
+    //   (workshop.scheduleLinks?.length || 0) +
+    //   (workshop.photosLinks?.length || 0) +
+    //   (workshop.permissionLetterLinks?.length || 0)
+    // );
+    
+    // Dynamic grid layout based on content amount
+    if (resourceCount <= 1) {
+      return 'grid-cols-1'; // Single column for 1 resource type
+    } else if (resourceCount === 2) {
+      return 'grid-cols-1 md:grid-cols-2'; // 1 column mobile, 2 columns on md+
+    } else if (resourceCount >= 3 && resourceCount <= 4) {
+      return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2'; // 1-2-2 columns
+    } else {
+      // Many resource types - adapt based on screen size
+      return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'; // 1-2-3 columns
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+      </div>
+    );
+  }
+
+  if (error || !workshop) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <h2 className="text-2xl font-bold text-red-600 mb-4">
+          {error || "Workshop not found"}
+        </h2>
+        <p className="text-gray-600 mb-8">The workshop you're looking for couldn't be found or you may not have access to it.</p>
+        <button 
+          onClick={() => navigate('/workshops')}
+          className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+        >
+          Back to Workshops
+        </button>
+      </div>
+    );
+  }
+
+  const status = getWorkshopStatus(workshop);
+  const statusClass = getStatusClass(status);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Workshop Header Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-3">{workshop.eventTitle}</h1>
+            <div className="flex items-center space-x-4 mb-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusClass}`}>
+                {status}
+              </span>
+              <span className="text-gray-600">
+                {formatDate(workshop.eventStDate)}
+                {workshop.eventEndDate && workshop.eventStDate !== workshop.eventEndDate && 
+                  ` - ${formatDate(workshop.eventEndDate)}`
+                }
+              </span>
+              {workshop.eventStTime && (
+                <span className="text-gray-600">at {workshop.eventStTime}</span>
+              )}
+            </div>
+            
+            {workshop.category && workshop.category.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {workshop.category.map((cat, idx) => (
+                  <span 
+                    key={idx}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                  >
+                    {cat}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex space-x-3">
+            {hasEditAccess(workshop) && (
+              <button
+                onClick={openEditModal}
+                className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/workshops')}
+              className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Workshops
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Workshop Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Image and Basic Info */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <img 
+              src={workshop.thumbnail || "https://via.placeholder.com/800x450?text=Workshop"} 
+              alt={workshop.eventTitle}
+              className="w-full h-auto object-cover aspect-video"
+            />
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-bold mb-4">Workshop Details</h2>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="font-medium">Start Date:</span>
+                <span>{formatDate(workshop.eventStDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">End Date:</span>
+                <span>{formatDate(workshop.eventEndDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Time:</span>
+                <span>{workshop.eventStTime}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-bold mb-4">Categories</h2>
+            <div className="flex flex-wrap gap-2">
+              {workshop.category?.map((cat, index) => (
+                <span 
+                  key={index} 
+                  className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-full"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold mb-4">Participation</h2>
+            <ul className="space-y-2">
+              {workshop.participantInfo?.map((info, index) => (
+                <li key={index} className="flex items-center text-gray-700">
+                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  {info}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        
+        {/* Right Column - Resources, People, etc. */}
+        <div className="lg:col-span-2">
+          {/* Action Buttons */}
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-center gap-4">
+              <a 
+                href={workshop.registrationLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex-1 bg-black text-white text-center py-3 rounded-md hover:bg-gray-800 transition-colors font-medium flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                Register Now
+              </a>
+              
+              <a 
+                href={workshop.feedbackLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex-1 border border-black text-black text-center py-3 rounded-md hover:bg-gray-100 transition-colors font-medium flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Provide Feedback
+              </a>
+            </div>
+          </div>
+          
+          {/* People Section */}
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-bold mb-6">People</h2>
+            
+            {/* Resource Persons */}
+            {workshop.resourcePersonDetails?.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">Resource Persons</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {workshop.resourcePersonDetails.map((person, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
+                          <span className="text-gray-600 font-medium text-lg">
+                            {person.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-lg">{person.name}</h4>
+                          <p className="text-gray-600">{person.designation}</p>
+                          {person.department && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mt-1">
+                              {person.department}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Organizers */}
+            {workshop.eventOrganiserDetails?.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Workshop Organizers</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {workshop.eventOrganiserDetails.map((organizer, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
+                          <span className="text-gray-600 font-medium text-lg">
+                            {organizer.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-lg">{organizer.name}</h4>
+                          <p className="text-gray-600">{organizer.designation}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Resources Section */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold mb-6">Resources</h2>
+            
+            {/* Dynamic grid that adjusts based on content */}
+            <div className={`grid gap-6 ${determineGridLayout(workshop)}`}>
+              {/* Posters */}
+              {workshop.eventPosterLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Posters
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.eventPosterLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Poster {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Brochures */}
+              {workshop.brochureLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Brochures
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.brochureLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        </svg>
+                        Brochure {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Schedules */}
+              {workshop.scheduleLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Schedules
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.scheduleLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Schedule {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Photos */}
+              {workshop.photosLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Workshop Photos
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.photosLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Photo {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Permission Letters */}
+              {workshop.permissionLetterLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Permission Letters
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.permissionLetterLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        </svg>
+                        Permission Letter {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add any other resource types here with the same pattern */}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      {showModal && isEditing && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Edit Workshop</h2>
+              <button 
+                onClick={closeModal}
+                className="text-gray-500 hover:text-black p-2 rounded-md hover:bg-gray-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-grow p-6">
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Basic Information</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title (Read Only)</label>
+                      <input
+                        type="text"
+                        value={workshop.eventTitle}
+                        disabled
+                        className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Workshop title cannot be changed</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          value={editData.eventStDate || workshop.eventStDate}
+                          onChange={(e) => setEditData({...editData, eventStDate: e.target.value})}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <input
+                          type="date"
+                          value={editData.eventEndDate || workshop.eventEndDate}
+                          onChange={(e) => setEditData({...editData, eventEndDate: e.target.value})}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 10:00 AM"
+                          value={editData.eventStTime || workshop.eventStTime}
+                          onChange={(e) => setEditData({...editData, eventStTime: e.target.value})}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
+                      <input
+                        type="text"
+                        value={editData.thumbnail || workshop.thumbnail || ''}
+                        onChange={(e) => setEditData({...editData, thumbnail: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
+                      {(editData.category || workshop.category || []).map((category, index) => (
+                        <div key={`category-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={category}
+                            onChange={(e) => {
+                              const newCategories = [...(editData.category || workshop.category)];
+                              newCategories[index] = e.target.value;
+                              setEditData({...editData, category: newCategories});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newCategories = [...(editData.category || workshop.category)];
+                              newCategories.splice(index, 1);
+                              setEditData({...editData, category: newCategories});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentCategories = editData.category || workshop.category || [];
+                          setEditData({...editData, category: [...currentCategories, '']});
+                        }}
+                        className="mt-2 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Category
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Event Organizers */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Event Organizers</h4>
+                  <div className="space-y-3">
+                    {(editData.eventOrganiserDetails || workshop.eventOrganiserDetails || []).map((organizer, index) => (
+                      <div key={`organizer-${index}`} className="p-4 border border-gray-200 rounded-md bg-white">
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="font-medium">Organizer {index + 1}</h5>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newOrganizers = [...(editData.eventOrganiserDetails || workshop.eventOrganiserDetails)];
+                              newOrganizers.splice(index, 1);
+                              setEditData({...editData, eventOrganiserDetails: newOrganizers});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input
+                              type="text"
+                              value={organizer.name || ''}
+                              onChange={(e) => {
+                                const newOrganizers = [...(editData.eventOrganiserDetails || workshop.eventOrganiserDetails)];
+                                newOrganizers[index] = {...newOrganizers[index], name: e.target.value};
+                                setEditData({...editData, eventOrganiserDetails: newOrganizers});
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                            <input
+                              type="text"
+                              value={organizer.designation || ''}
+                              onChange={(e) => {
+                                const newOrganizers = [...(editData.eventOrganiserDetails || workshop.eventOrganiserDetails)];
+                                newOrganizers[index] = {...newOrganizers[index], designation: e.target.value};
+                                setEditData({...editData, eventOrganiserDetails: newOrganizers});
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentOrganizers = editData.eventOrganiserDetails || workshop.eventOrganiserDetails || [];
+                        setEditData({
+                          ...editData,
+                          eventOrganiserDetails: [...currentOrganizers, { name: '', designation: '' }]
+                        });
+                      }}
+                      className="mt-2 flex items-center text-sm text-gray-700 hover:text-black"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add Organizer
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Resource Persons */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Resource Persons</h4>
+                  <div className="space-y-3">
+                    {(editData.resourcePersonDetails || workshop.resourcePersonDetails || []).map((person, index) => (
+                      <div key={`resource-${index}`} className="p-4 border border-gray-200 rounded-md bg-white">
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="font-medium">Resource Person {index + 1}</h5>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newPersons = [...(editData.resourcePersonDetails || workshop.resourcePersonDetails)];
+                              newPersons.splice(index, 1);
+                              setEditData({...editData, resourcePersonDetails: newPersons});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input
+                              type="text"
+                              value={person.name || ''}
+                              onChange={(e) => {
+                                const newPersons = [...(editData.resourcePersonDetails || workshop.resourcePersonDetails)];
+                                newPersons[index] = {...newPersons[index], name: e.target.value};
+                                setEditData({...editData, resourcePersonDetails: newPersons});
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                            <input
+                              type="text"
+                              value={person.designation || ''}
+                              onChange={(e) => {
+                                const newPersons = [...(editData.resourcePersonDetails || workshop.resourcePersonDetails)];
+                                newPersons[index] = {...newPersons[index], designation: e.target.value};
+                                setEditData({...editData, resourcePersonDetails: newPersons});
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                            <input
+                              type="text"
+                              value={person.department || ''}
+                              onChange={(e) => {
+                                const newPersons = [...(editData.resourcePersonDetails || workshop.resourcePersonDetails)];
+                                newPersons[index] = {...newPersons[index], department: e.target.value};
+                                setEditData({...editData, resourcePersonDetails: newPersons});
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentPersons = editData.resourcePersonDetails || workshop.resourcePersonDetails || [];
+                        setEditData({
+                          ...editData,
+                          resourcePersonDetails: [...currentPersons, { name: '', designation: '', department: '' }]
+                        });
+                      }}
+                      className="mt-2 flex items-center text-sm text-gray-700 hover:text-black"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add Resource Person
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Workshop Materials */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Workshop Materials</h4>
+                  
+                  <div className="space-y-4">
+                    {/* Event Posters */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Event Posters</label>
+                      {(editData.eventPosterLinks || workshop.eventPosterLinks || []).map((link, index) => (
+                        <div key={`poster-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, eventPosterLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Poster link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, eventPosterLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.eventPosterLinks || workshop.eventPosterLinks || [];
+                          setEditData({...editData, eventPosterLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Poster Link
+                      </button>
+                    </div>
+                    
+                    {/* Brochures */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Brochures</label>
+                      {(editData.brochureLinks || workshop.brochureLinks || []).map((link, index) => (
+                        <div key={`brochure-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, brochureLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Brochure link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, brochureLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.brochureLinks || workshop.brochureLinks || [];
+                          setEditData({...editData, brochureLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Brochure Link
+                      </button>
+                    </div>
+                    
+                    {/* Circulars */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Circulars</label>
+                      {(editData.circularLinks || workshop.circularLinks || []).map((link, index) => (
+                        <div key={`circular-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, circularLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Circular link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, circularLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.circularLinks || workshop.circularLinks || [];
+                          setEditData({...editData, circularLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Circular Link
+                      </button>
+                    </div>
+                    
+                    {/* Photos */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Photos</label>
+                      {(editData.photosLinks || workshop.photosLinks || []).map((link, index) => (
+                        <div key={`photo-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, photosLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Photo link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, photosLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.photosLinks || workshop.photosLinks || [];
+                          setEditData({...editData, photosLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Photo Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Schedule & Participants */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Schedule & Participants</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Schedule Links</label>
+                      {(editData.scheduleLinks || workshop.scheduleLinks || []).map((link, index) => (
+                        <div key={`schedule-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, scheduleLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Schedule link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, scheduleLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.scheduleLinks || workshop.scheduleLinks || [];
+                          setEditData({...editData, scheduleLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Schedule Link
+                      </button>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Participant Information</label>
+                      {(editData.participantInfo || workshop.participantInfo || []).map((info, index) => (
+                        <div key={`participant-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={info}
+                            onChange={(e) => {
+                              const newInfo = [...(editData.participantInfo || workshop.participantInfo)];
+                              newInfo[index] = e.target.value;
+                              setEditData({...editData, participantInfo: newInfo});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="e.g. Total:150 or CSE:50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newInfo = [...(editData.participantInfo || workshop.participantInfo)];
+                              newInfo.splice(index, 1);
+                              setEditData({...editData, participantInfo: newInfo});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentInfo = editData.participantInfo || workshop.participantInfo || [];
+                          setEditData({...editData, participantInfo: [...currentInfo, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Participant Information
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Additional Information */}
+                <div className="bg-gray-50 p-5 rounded-lg">
+                  <h4 className="font-medium text-lg mb-4">Additional Information</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Permission Letters</label>
+                      {(editData.permissionLetterLinks || workshop.permissionLetterLinks || []).map((link, index) => (
+                        <div key={`permission-${index}`} className="flex items-center mb-2">
+                          <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
+                              newLinks[index] = e.target.value;
+                              setEditData({...editData, permissionLetterLinks: newLinks});
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                            placeholder="Permission letter link"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
+                              newLinks.splice(index, 1);
+                              setEditData({...editData, permissionLetterLinks: newLinks});
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentLinks = editData.permissionLetterLinks || workshop.permissionLetterLinks || [];
+                          setEditData({...editData, permissionLetterLinks: [...currentLinks, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Permission Letter Link
+                      </button>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Users with Edit Access</label>
+                      <div className="mb-2 p-2 bg-gray-100 rounded-md text-sm">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>Creator ({workshop.editAccessUsers?.[0] || 'unknown'}) has permanent access</span>
+                        </div>
+                      </div>
+                      
+                      {(editData.editAccessUsers || workshop.editAccessUsers || [])
+                        .filter((user, idx) => idx > 0) // Skip the first user (creator)
+                        .map((user, index) => {
+                          // We adjust the index to account for the filtered first user
+                          const actualIndex = index + 1;
+                          return (
+                            <div key={`editor-${index}`} className="flex items-center mb-2">
+                              <input
+                                type="text"
+                                value={user}
+                                onChange={(e) => {
+                                  const newUsers = [...(editData.editAccessUsers || workshop.editAccessUsers)];
+                                  newUsers[actualIndex] = e.target.value;
+                                  setEditData({...editData, editAccessUsers: newUsers});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
+                                placeholder="Username"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newUsers = [...(editData.editAccessUsers || workshop.editAccessUsers)];
+                                  newUsers.splice(actualIndex, 1);
+                                  setEditData({...editData, editAccessUsers: newUsers});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentUsers = editData.editAccessUsers || workshop.editAccessUsers || [];
+                          setEditData({...editData, editAccessUsers: [...currentUsers, '']});
+                        }}
+                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add User with Edit Access
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Registration Link</label>
+                      <input
+                        type="text"
+                        value={editData.registrationLink || workshop.registrationLink || ''}
+                        onChange={(e) => setEditData({...editData, registrationLink: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        placeholder="https://forms.example.com/register"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Feedback Link</label>
+                      <input
+                        type="text"
+                        value={editData.feedbackLink || workshop.feedbackLink || ''}
+                        onChange={(e) => setEditData({...editData, feedbackLink: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        placeholder="https://forms.example.com/feedback"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-4 pt-4">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEditSubmit}
+                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default EventDetails;
