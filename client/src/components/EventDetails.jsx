@@ -14,7 +14,7 @@ function EventDetails() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [showModal, setShowModal] = useState(false);
-  const [, setDeleteConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Get current user
   useEffect(() => {
@@ -159,26 +159,69 @@ function EventDetails() {
     }
   };
 
+  // Handle delete
+  const handleDelete = async () => {
+    if (!workshop) return;
+    
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Log the URL that's being requested
+      console.log(`Deleting workshop: ${workshop.eventTitle}`);
+      
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/delwks/${encodeURIComponent(workshop.eventTitle)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Try to parse response as JSON, but handle non-JSON responses too
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (err) {
+          console.error('Error parsing JSON response:', err);
+        }
+      } else {
+        // For non-JSON responses like HTML error pages
+        const textResponse = await response.text();
+        console.log('Non-JSON response:', textResponse);
+      }
+
+      if (response.ok) {
+        alert('Workshop deleted successfully!');
+        navigate('/workshops');
+      } else {
+        console.error('Delete error:', data || response.statusText);
+        alert(data?.message || `Failed to delete workshop (${response.status})`);
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+      alert(`Network error: ${err.message}. Please try again.`);
+    } finally {
+      setDeleteConfirm(false);
+    }
+  };
+
   // Helper function to determine grid layout based on content
   const determineGridLayout = (workshop) => {
     // Count how many resource types are available
     const resourceCount = [
-      workshop.eventPosterLinks?.length > 0,
-      workshop.brochureLinks?.length > 0,
-      workshop.scheduleLinks?.length > 0,
-      workshop.photosLinks?.length > 0,
-      workshop.permissionLetterLinks?.length > 0,
-      // Add any other resource types here
+      workshop.eventPosterLinks?.length > 0 && workshop.eventPosterLinks[0],
+      workshop.brochureLinks?.length > 0 && workshop.brochureLinks[0],
+      workshop.scheduleLinks?.length > 0 && workshop.scheduleLinks[0],
+      workshop.photosLinks?.length > 0 && workshop.photosLinks[0],
+      workshop.permissionLetterLinks?.length > 0 && workshop.permissionLetterLinks[0],
+      workshop.circularLinks?.length > 0 && workshop.circularLinks[0], // Add this line
+      workshop.budgetDataLinks?.length > 0 && workshop.budgetDataLinks[0],
+      workshop.participantsLinks?.length > 0 && workshop.participantsLinks[0],
+      workshop.certificateLinks?.length > 0 && workshop.certificateLinks[0],
+      workshop.resourcePersonDocLinks?.length > 0 && workshop.resourcePersonDocLinks[0],
+      workshop.attendanceSheetLinks?.length > 0 && workshop.attendanceSheetLinks[0],
     ].filter(Boolean).length;
-    
-    // Calculate items per type
-    // const totalItems = (
-    //   (workshop.eventPosterLinks?.length || 0) +
-    //   (workshop.brochureLinks?.length || 0) +
-    //   (workshop.scheduleLinks?.length || 0) +
-    //   (workshop.photosLinks?.length || 0) +
-    //   (workshop.permissionLetterLinks?.length || 0)
-    // );
     
     // Dynamic grid layout based on content amount
     if (resourceCount <= 1) {
@@ -259,15 +302,26 @@ function EventDetails() {
           
           <div className="flex space-x-3">
             {hasEditAccess(workshop) && (
-              <button
-                onClick={openEditModal}
-                className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit
-              </button>
+              <>
+                <button
+                  onClick={openEditModal}
+                  className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(true)}
+                  className="flex items-center px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-md"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </button>
+              </>
             )}
             <button
               onClick={() => navigate('/workshops')}
@@ -346,7 +400,7 @@ function EventDetails() {
           {/* Action Buttons */}
           <div className="bg-white p-6 rounded-lg shadow-md mb-6">
             <div className="flex flex-col sm:flex-row sm:justify-center gap-4">
-              <a 
+              {/* <a 
                 href={workshop.registrationLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
@@ -356,7 +410,7 @@ function EventDetails() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
                 Register Now
-              </a>
+              </a> */}
               
               <a 
                 href={workshop.feedbackLink} 
@@ -437,7 +491,7 @@ function EventDetails() {
             {/* Dynamic grid that adjusts based on content */}
             <div className={`grid gap-6 ${determineGridLayout(workshop)}`}>
               {/* Posters */}
-              {workshop.eventPosterLinks?.length > 0 && (
+              {workshop.eventPosterLinks?.length > 0 && workshop.eventPosterLinks[0] && (
                 <div className="resource-card">
                   <h3 className="font-medium text-lg mb-3 flex items-center">
                     <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -447,7 +501,7 @@ function EventDetails() {
                   </h3>
                   <div className="space-y-2">
                     {workshop.eventPosterLinks.map((link, index) => (
-                      <a 
+                      link && <a 
                         key={index}
                         href={link}
                         target="_blank"
@@ -498,7 +552,7 @@ function EventDetails() {
                 <div className="resource-card">
                   <h3 className="font-medium text-lg mb-3 flex items-center">
                     <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 01-2 2z" />
                     </svg>
                     Schedules
                   </h3>
@@ -578,7 +632,173 @@ function EventDetails() {
                 </div>
               )}
 
-              {/* Add any other resource types here with the same pattern */}
+              {/* Budget Data */}
+              {workshop.budgetDataLinks?.length > 0 && workshop.budgetDataLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                    Budget Documents
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.budgetDataLinks.map((link, index) => (
+                      link && <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Budget Document {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Participants Lists */}
+              {workshop.participantsLinks?.length > 0 && workshop.participantsLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Participants Lists
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.participantsLinks.map((link, index) => (
+                      link && <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Participants List {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Certificate Templates */}
+              {workshop.certificateLinks?.length > 0 && workshop.certificateLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                    </svg>
+                    Certificate Templates
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.certificateLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Certificate Template {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Resource Person Documents */}
+              {workshop.resourcePersonDocLinks?.length > 0 && workshop.resourcePersonDocLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Resource Person Documents
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.resourcePersonDocLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Resource Person Document {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Circulars */}
+          {workshop.circularLinks?.length > 0 && workshop.circularLinks[0] && (
+            <div className="resource-card">
+              <h3 className="font-medium text-lg mb-3 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                Circulars
+              </h3>
+              <div className="space-y-2">
+                {workshop.circularLinks.map((link, index) => (
+                  link && <a 
+                    key={index}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                  >
+                    <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Circular {index + 1}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+              {/* Attendance Sheets */}
+              {workshop.attendanceSheetLinks?.length > 0 && workshop.attendanceSheetLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    Attendance Sheets
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.attendanceSheetLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Attendance Sheet {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1263,7 +1483,7 @@ function EventDetails() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Registration Link</label>
                       <input
                         type="text"
@@ -1272,7 +1492,7 @@ function EventDetails() {
                         className="w-full p-2 border border-gray-300 rounded-md"
                         placeholder="https://forms.example.com/register"
                       />
-                    </div>
+                    </div> */}
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Feedback Link</label>
@@ -1302,6 +1522,46 @@ function EventDetails() {
                     Save Changes
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-red-600">Delete Workshop</h2>
+              <button 
+                onClick={() => setDeleteConfirm(false)}
+                className="text-gray-500 hover:text-black p-2 rounded-md hover:bg-gray-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="mb-4 text-gray-700">
+                Are you sure you want to delete <span className="font-semibold">{workshop?.eventTitle}</span>? This action cannot be undone.
+              </p>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setDeleteConfirm(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Delete Workshop
+                </button>
               </div>
             </div>
           </div>

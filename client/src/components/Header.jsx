@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import schedulrLogo from '../assets/logo.png'; // Add your logo to assets folder
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -71,6 +72,11 @@ function Header() {
           {/* Logo & Brand */}
           <div className="flex items-center">
             <Link to="/home" className="flex-shrink-0 flex items-center">
+              <img 
+                src={schedulrLogo} 
+                alt="Schedulr Logo" 
+                className="h-8 w-auto mr-2" 
+              />
               <span className="text-black font-bold text-2xl">Schedulr</span>
             </Link>
           </div>

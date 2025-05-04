@@ -27,8 +27,13 @@ const CreateWorkshop = () => {
     participantInfo: ['Total:'],
     scheduleLinks: [''],
     permissionLetterLinks: [''],
-    registrationLink: '',
-    feedbackLink: ''
+    // registrationLink: '',
+    feedbackLink: '',
+    // New fields
+    budgetDataLinks: [''],
+    participantsLinks: [''],
+    certificateLinks: [''],
+    resourcePersonDocLinks: ['']
   });
 
   // Get current user on component mount
@@ -667,20 +672,120 @@ const CreateWorkshop = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
+              {/* Budget Data */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Registration Link
+                  Budget Data
                 </label>
-                <input
-                  type="text"
-                  name="registrationLink"
-                  placeholder="https://forms.example.com/register"
-                  value={formData.registrationLink}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                />
+                {formData.budgetDataLinks.map((link, index) => (
+                  <div key={`budget-${index}`} className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Budget data link"
+                      value={link}
+                      onChange={(e) => handleArrayInputChange(index, 'budgetDataLinks', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeArrayItem('budgetDataLinks', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => addArrayItem('budgetDataLinks')}
+                  className="text-black hover:text-gray-700 text-sm font-medium inline-flex items-center"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Budget Data Link
+                </button>
               </div>
               
+              {/* Participants List */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Participants List
+                </label>
+                {formData.participantsLinks.map((link, index) => (
+                  <div key={`participants-${index}`} className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Participants list link"
+                      value={link}
+                      onChange={(e) => handleArrayInputChange(index, 'participantsLinks', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeArrayItem('participantsLinks', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => addArrayItem('participantsLinks')}
+                  className="text-black hover:text-gray-700 text-sm font-medium inline-flex items-center"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Participants List Link
+                </button>
+              </div>
+              
+              {/* Certificate Templates */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Certificate Templates
+                </label>
+                {formData.certificateLinks.map((link, index) => (
+                  <div key={`certificate-${index}`} className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Certificate template link"
+                      value={link}
+                      onChange={(e) => handleArrayInputChange(index, 'certificateLinks', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeArrayItem('certificateLinks', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => addArrayItem('certificateLinks')}
+                  className="text-black hover:text-gray-700 text-sm font-medium inline-flex items-center"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Certificate Template Link
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Feedback Link - kept */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Feedback Link
@@ -695,6 +800,7 @@ const CreateWorkshop = () => {
                 />
               </div>
               
+              {/* Permission Letters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Permission Letters
@@ -730,85 +836,24 @@ const CreateWorkshop = () => {
                   Add Permission Letter Link
                 </button>
               </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Participant Information
-                </label>
-                {formData.participantInfo.map((info, index) => (
-                  <div key={`participant-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="e.g., Total:150 or CSE:50"
-                      value={info}
-                      onChange={(e) => handleArrayInputChange(index, 'participantInfo', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('participantInfo', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <button 
-                  type="button" 
-                  onClick={() => addArrayItem('participantInfo')}
-                  className="text-black hover:text-gray-700 text-sm font-medium inline-flex items-center"
-                >
-                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Participant Information
-                </button>
-              </div>
               
+              {/* Resource Person Documents - MOVED below Permission Letters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Users with Edit Access
+                  Resource Person Documents
                 </label>
-                <div className="mb-2 p-2 bg-gray-50 rounded-md text-sm">
-                  <div className="flex items-center space-x-2">
-                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>You ({currentUser?.username || 'current user'}) have edit access</span>
-                  </div>
-                </div>
-                {formData.editAccessUsers.filter(user => user !== currentUser?.username).map((user, index) => (
-                  <div key={`editor-${index}`} className="flex items-center space-x-2 mb-2">
+                {formData.resourcePersonDocLinks.map((link, index) => (
+                  <div key={`resource-doc-${index}`} className="flex items-center space-x-2 mb-2">
                     <input
                       type="text"
-                      placeholder="Username"
-                      value={user}
-                      onChange={(e) => {
-                        const newEditUsers = [...formData.editAccessUsers];
-                        const actualIndex = formData.editAccessUsers.findIndex(u => u === user);
-                        if (actualIndex !== -1) {
-                          newEditUsers[actualIndex] = e.target.value;
-                          setFormData(prev => ({
-                            ...prev,
-                            editAccessUsers: newEditUsers
-                          }));
-                        }
-                      }}
+                      placeholder="Resource person document link"
+                      value={link}
+                      onChange={(e) => handleArrayInputChange(index, 'resourcePersonDocLinks', e.target.value)}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
                     />
                     <button 
                       type="button" 
-                      onClick={() => {
-                        const newEditUsers = formData.editAccessUsers.filter(u => u !== user);
-                        setFormData(prev => ({
-                          ...prev,
-                          editAccessUsers: newEditUsers
-                        }));
-                      }}
+                      onClick={() => removeArrayItem('resourcePersonDocLinks', index)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -819,18 +864,13 @@ const CreateWorkshop = () => {
                 ))}
                 <button 
                   type="button" 
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      editAccessUsers: [...prev.editAccessUsers, '']
-                    }));
-                  }}
+                  onClick={() => addArrayItem('resourcePersonDocLinks')}
                   className="text-black hover:text-gray-700 text-sm font-medium inline-flex items-center"
                 >
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add User with Edit Access
+                  Add Resource Person Document Link
                 </button>
               </div>
             </div>

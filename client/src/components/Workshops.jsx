@@ -475,14 +475,14 @@ function Workshops() {
                   )}
                   
                   <div className="flex justify-between space-x-4 mt-4">
-                    <a 
+                    {/* <a 
                       href={workshop.registrationLink} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex-1 bg-black text-white text-center py-3 rounded-md hover:bg-gray-800 transition-colors font-medium"
                     >
                       Register
-                    </a>
+                    </a> */}
                     
                     <a 
                       href={workshop.feedbackLink} 

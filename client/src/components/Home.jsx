@@ -533,14 +533,13 @@ const Home = () => {
                   </div>
                   
                   <div className="ml-4 flex-shrink-0 self-center flex">
-                    <a 
-                      href={workshop.registrationLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                    <Link 
+                      to={`/workshops/${encodeURIComponent(workshop.eventTitle.toLowerCase().replace(/\s+/g, '-'))}`}
+                      state={{ workshop }}
                       className="px-3 py-1 bg-black text-white text-sm rounded-md hover:bg-gray-800 flex items-center"
                     >
-                      Register
-                    </a>
+                      View
+                    </Link>
                     
                     {hasEditAccess(workshop) && (
                       <button
