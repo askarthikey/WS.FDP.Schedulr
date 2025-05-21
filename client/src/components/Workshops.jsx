@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function Workshops() {
   const [workshops, setWorkshops] = useState([]);
@@ -29,7 +30,7 @@ function Workshops() {
     const fetchWorkshops = async () => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/getwks`, {
+        const response = await fetch(`${BackendURL}/workshopApi/getwks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -165,7 +166,7 @@ function Workshops() {
     
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/editwks/${encodeURIComponent(selectedWorkshop.eventTitle)}`, {
+      const response = await fetch(`${BackendURL}/workshopApi/editwks/${encodeURIComponent(selectedWorkshop.eventTitle)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +201,7 @@ function Workshops() {
     
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/delwks/${encodeURIComponent(selectedWorkshop.eventTitle)}`, {
+      const response = await fetch(`${BackendURL}/workshopApi/delwks/${encodeURIComponent(selectedWorkshop.eventTitle)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

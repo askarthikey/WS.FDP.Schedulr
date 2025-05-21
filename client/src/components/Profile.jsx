@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function Profile() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -47,7 +48,7 @@ function Profile() {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       // Fetch workshops
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/getwks`, {
+      const response = await fetch(`${BackendURL}/workshopApi/getwks`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -112,7 +113,7 @@ function Profile() {
       
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/userApi/updateProfile`, {
+      const response = await fetch(`${BackendURL}/userApi/updateProfile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +188,7 @@ function Profile() {
       
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/userApi/changePassword`, {
+      const response = await fetch(`${BackendURL}/userApi/changePassword`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +243,7 @@ function Profile() {
       setDeleteLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/userApi/deleteAccount`, {
+      const response = await fetch(`${BackendURL}/userApi/deleteAccount`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

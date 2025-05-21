@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 const CreateWorkshop = () => {
   const navigate = useNavigate();
@@ -159,7 +160,7 @@ const CreateWorkshop = () => {
         }
       }
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/create`, {
+      const response = await fetch(`${BackendURL}/workshopApi/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

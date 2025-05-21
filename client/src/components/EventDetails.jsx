@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function EventDetails() {
   const { eventTitle } = useParams();
@@ -32,7 +33,7 @@ function EventDetails() {
           const decodedTitle = decodeURIComponent(eventTitle);
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
-          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/workshop/${encodeURIComponent(decodedTitle)}`, {
+          const response = await fetch(`${BackendURL}/workshopApi/workshop/${encodeURIComponent(decodedTitle)}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -130,7 +131,7 @@ function EventDetails() {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       // Only send the modified data, not the entire merged object
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/editwks/${encodeURIComponent(workshop.eventTitle)}`, {
+      const response = await fetch(`${BackendURL}/workshopApi/editwks/${encodeURIComponent(workshop.eventTitle)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +170,7 @@ function EventDetails() {
       // Log the URL that's being requested
       console.log(`Deleting workshop: ${workshop.eventTitle}`);
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/delwks/${encodeURIComponent(workshop.eventTitle)}`, {
+      const response = await fetch(`${BackendURL}/workshopApi/delwks/${encodeURIComponent(workshop.eventTitle)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

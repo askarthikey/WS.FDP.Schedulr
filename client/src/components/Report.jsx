@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function Report() {
   // State variables
@@ -19,7 +20,7 @@ function Report() {
         setLoading(true);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/getwks`, {
+        const response = await fetch(`${BackendURL}/workshopApi/getwks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

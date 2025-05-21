@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 const Signin = () => {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ const Signin = () => {
     setError('');
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/userApi/signin`, {
+      const response = await fetch(`${BackendURL}/userApi/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -13,6 +13,7 @@ import {
   Legend 
 } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
+const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 // Register Chart.js components
 ChartJS.register(
@@ -53,7 +54,7 @@ const Home = () => {
     const fetchWorkshops = async () => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/workshopApi/getwks`, {
+        const response = await fetch(`${BackendURL}/workshopApi/getwks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
