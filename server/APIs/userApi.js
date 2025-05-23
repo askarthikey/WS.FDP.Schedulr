@@ -50,6 +50,18 @@ const verifyToken = expressAsyncHandler(async (req, res, next) => {
   }
 });
 
+// Admin authentication middleware
+const verifyAdmin = expressAsyncHandler(async (req, res, next) => {
+  // User must be authenticated first
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  if (req.user.isAdmin !== "true") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+});
+
 // Public routes (no authentication required)
 userApp.post(
   "/signup",
@@ -166,6 +178,66 @@ userApp.delete("/deleteAccount", verifyToken, expressAsyncHandler(async(req, res
   }
   
   res.status(200).json({ message: "Account deleted successfully" });
+}));
+
+// Get all users (admin only)
+userApp.get("/allUsers", verifyToken, verifyAdmin, expressAsyncHandler(async (req, res) => {
+  const usersCollection = req.usersCollection;
+  const users = await usersCollection.find({}).toArray();
+  res.status(200).json({ users });
+}));
+
+// Delete user by _id (admin only)
+userApp.delete("/deleteUser/:id", verifyToken, verifyAdmin, expressAsyncHandler(async (req, res) => {
+  const usersCollection = req.usersCollection;
+  const userId = req.params.id;
+  const { ObjectId } = require("mongodb");
+
+  // Prevent admin from deleting themselves
+  const userToDelete = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!userToDelete) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  if (userToDelete.username === req.user.username) {
+    return res.status(400).json({ message: "Admins cannot delete their own account" });
+  }
+
+  const deleteResult = await usersCollection.deleteOne({ _id: new ObjectId(userId) });
+  if (deleteResult.deletedCount === 0) {
+    return res.status(400).json({ message: "Could not delete user" });
+  }
+  res.status(200).json({ message: "User deleted successfully" });
+}));
+
+// Toggle user block status (admin only)
+userApp.put("/toggleBlockUser/:id", verifyToken, verifyAdmin, expressAsyncHandler(async (req, res) => {
+  const usersCollection = req.usersCollection;
+  const userId = req.params.id;
+  const { isBlocked } = req.body;
+  const { ObjectId } = require("mongodb");
+
+  // Prevent admin from blocking themselves
+  const userToUpdate = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!userToUpdate) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  
+  if (userToUpdate.username === req.user.username) {
+    return res.status(400).json({ message: "Admins cannot block their own account" });
+  }
+
+  const updateResult = await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: { isBlocked: isBlocked } }
+  );
+  
+  if (updateResult.modifiedCount === 0) {
+    return res.status(400).json({ message: "Could not update user status" });
+  }
+  
+  res.status(200).json({ 
+    message: `User ${isBlocked === "true" ? "blocked" : "unblocked"} successfully` 
+  });
 }));
 
 module.exports = userApp;

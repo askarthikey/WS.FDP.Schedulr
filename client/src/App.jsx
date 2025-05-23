@@ -11,6 +11,8 @@ import Report from './components/Report';
 import Profile from './components/Profile';
 import ErrorPage from './components/ErrorPage';
 import CreateWorkshop from './components/CreateWorkshop';
+import ManageUsers from './components/ManageUsers';
+import AccessControl from './components/AccessControl';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -82,6 +84,16 @@ function App() {
         {
           path: 'profile',
           element: isAuthenticated ? <Profile /> : <Navigate to="/signin" />,
+          loader: protectedLoader
+        },
+        {
+          path:'manage-users',
+          element: isAuthenticated ? <ManageUsers /> : <Navigate to="/signin" />,
+          loader: protectedLoader
+        },
+                {
+          path:'access-control',
+          element: isAuthenticated ? <AccessControl /> : <Navigate to="/signin" />,
           loader: protectedLoader
         }
       ]
