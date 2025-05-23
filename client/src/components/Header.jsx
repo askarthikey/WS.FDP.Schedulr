@@ -111,14 +111,14 @@ function Header() {
                     Manage Users
                   </Link>
                 )}
-                {currentUser.isAdmin === 'true' && (
+                {/* {currentUser.isAdmin === 'true' && (
                   <Link 
                     to="/access-control" 
                     className={`text-gray-700 hover:text-black px-3 py-2 text-sm font-medium ${isActive('/access-control')}`}
                   >
                     Access Control
                   </Link>
-                )}
+                )} */}
               </>
             )}
           </div>
@@ -216,7 +216,7 @@ function Header() {
                             Manage Users
                           </Link>
                         )}
-                        {currentUser.isAdmin === 'true' && (
+                        {/* {currentUser.isAdmin === 'true' && (
                           <Link 
                             to="/access-control" 
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -227,7 +227,7 @@ function Header() {
                           </svg>
                             Access Control
                           </Link>
-                        )}
+                        )} */}
                       </div>
                       
                       {/* Account Settings Section */}
@@ -378,7 +378,7 @@ function Header() {
                     Manage Users
                   </Link>
                 )}
-                {currentUser.isAdmin === 'true' && (
+                {/* {currentUser.isAdmin === 'true' && (
                   <Link
                     to="/access-control"
                     className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-black hover:bg-gray-50"
@@ -386,7 +386,7 @@ function Header() {
                   >
                     Access Control
                   </Link>
-                )}
+                )} */}
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:text-black hover:bg-gray-50"

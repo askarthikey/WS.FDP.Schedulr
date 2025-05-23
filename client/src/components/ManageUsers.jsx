@@ -496,11 +496,11 @@ function ManageUsers() {
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
+                        user.isAdmin === 'true' 
                           ? 'bg-purple-100 text-purple-800' 
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {user.role || 'user'}
+                        {user.isAdmin==='true'?"admin":'user'}
                       </span>
                     </td>
                     <td className="px-6 py-4">

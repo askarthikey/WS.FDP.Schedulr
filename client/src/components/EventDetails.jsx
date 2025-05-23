@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import FileUploadField from './FileUploadField';
 import { ensureStorageBucket } from '../utils/supabaseClient';
@@ -18,6 +18,15 @@ function EventDetails() {
   const [editData, setEditData] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // Add these new state variables for the enhanced user selection
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [accessExpiry, setAccessExpiry] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   // Get current user
   useEffect(() => {
@@ -81,8 +90,28 @@ function EventDetails() {
   // Check if current user has edit access
   const hasEditAccess = (workshop) => {
     if (!currentUser || !workshop) return false;
-    return workshop.editAccessUsers?.includes(currentUser.username);
+    return workshop.editAccessUsers?.includes(currentUser.username) || currentUser.isAdmin;
   };
+
+  // Add this function after the hasEditAccess function
+const checkAccessExpiry = () => {
+  if (!currentUser || !workshop || !workshop.accessExpiry) return true;
+  
+  // If user is the creator or admin, they always have access
+  if (workshop.createdBy === currentUser.username || currentUser.isAdmin === "true") {
+    return true;
+  }
+
+  // Check if user has an expiry date in the accessExpiry object
+  const userExpiry = workshop.accessExpiry[currentUser.username];
+  if (!userExpiry) return true; // No expiry date set, assume access is valid
+  
+  // Compare current date with expiry date
+  const expiryDate = new Date(userExpiry);
+  const currentDate = new Date();
+  
+  return currentDate <= expiryDate; // Return true if access is still valid
+};
 
   // Get workshop status
   const getWorkshopStatus = (workshop) => {
@@ -109,6 +138,10 @@ function EventDetails() {
 
   // Open edit modal
   const openEditModal = () => {
+    if(!checkAccessExpiry()){
+      alert('Your access has expired. Please contact the admin for more information.');
+      return;
+    }
     setIsEditing(true);
     setEditData({});
     setShowModal(true);
@@ -253,6 +286,132 @@ function EventDetails() {
     }
   };
 
+  // Add this function to fetch all users (excluding admins)
+  const fetchAllUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BackendURL}/userApi/allUsers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Check if data is an array or has a users property
+        let usersArray = [];
+        
+        if (Array.isArray(data)) {
+          usersArray = data;
+        } else if (data && typeof data === 'object') {
+          // Check for common API response patterns
+          if (Array.isArray(data.users)) {
+            usersArray = data.users;
+          } else if (Array.isArray(data.data)) {
+            usersArray = data.data;
+          } else if (Array.isArray(data.results)) {
+            usersArray = data.results;
+          } else {
+            console.error("Unexpected API response format:", data);
+          }
+        }
+        
+        // Filter out admins
+        const nonAdminUsers = usersArray.filter(user => !user.isAdmin);
+        setAllUsers(nonAdminUsers);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Then modify the handleGrantAccess function to handle multiple users
+  const handleGrantAccess = async () => {
+    if (selectedUsers.length === 0 || !accessExpiry) {
+      alert('Please select at least one user and set an expiry date');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const promises = selectedUsers.map(username => 
+        fetch(`${BackendURL}/workshopApi/grantAccess/${encodeURIComponent(workshop.eventTitle)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            username,
+            expiryDate: accessExpiry
+          })
+        })
+      );
+      
+      const results = await Promise.all(promises);
+      
+      // Check if all requests were successful
+      const allSuccessful = results.every(res => res.ok);
+      
+      if (allSuccessful) {
+        // Update the local workshop data to include the new access users
+        setWorkshop(prev => {
+          const updatedAccessUsers = [...(prev.editAccessUsers || [])];
+          selectedUsers.forEach(username => {
+            if (!updatedAccessUsers.includes(username)) {
+              updatedAccessUsers.push(username);
+            }
+          });
+          return { ...prev, editAccessUsers: updatedAccessUsers };
+        });
+        
+        setShowAccessModal(false);
+        setSelectedUsers([]);
+        setAccessExpiry('');
+        alert('Access granted successfully!');
+      } else {
+        alert('Failed to grant access to some users. Please try again.');
+      }
+    } catch (error) {
+      console.error("Error granting access:", error);
+      alert('Network error. Please try again.');
+    }
+  };
+
+  // Filtered users based on search term
+  const filteredUsers = useMemo(() => {
+    if (!userSearchTerm) return allUsers;
+    return allUsers.filter(user => 
+      user.username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(userSearchTerm.toLowerCase()))
+    );
+  }, [allUsers, userSearchTerm]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showUserDropdown && !event.target.closest('.user-dropdown-container')) {
+        setShowUserDropdown(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserDropdown]);
+
+  // Update openAccessModal to reset the search term as well
+  const openAccessModal = () => {
+    setShowAccessModal(true);
+    fetchAllUsers();
+    setSelectedUsers([]);
+    setUserSearchTerm('');
+    setAccessExpiry('');
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -329,6 +488,7 @@ function EventDetails() {
                   </svg>
                   Edit
                 </button>
+                {currentUser && currentUser.isAdmin && (
                 <button
                   onClick={() => setDeleteConfirm(true)}
                   className="flex items-center px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-md"
@@ -338,8 +498,23 @@ function EventDetails() {
                   </svg>
                   Delete
                 </button>
+                )}
               </>
             )}
+            
+            {/* Add Give Access button for admins only */}
+            {currentUser && currentUser.isAdmin && (
+              <button
+                onClick={openAccessModal}
+                className="flex items-center px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-md"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                Give Access
+              </button>
+            )}
+            
             <button
               onClick={() => navigate('/workshops')}
               className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
@@ -678,145 +853,73 @@ function EventDetails() {
               )}
 
               {/* Budget Data */}
-              {workshop.budgetDataLinks?.length > 0 && workshop.budgetDataLinks[0] && (
-                <div className="resource-card">
-                  <h3 className="font-medium text-lg mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              <div className="bg-white p-4 rounded-md">
+                <h5 className="font-medium mb-3">Budget Data</h5>
+                <div className="space-y-4">
+                  {(editData.budgetDataLinks || workshop.budgetDataLinks || []).map((link, index) => (
+                    <div key={`budget-${index}`} className="p-3 border border-gray-100 rounded-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <input
+                          type="text"
+                          value={link}
+                          onChange={(e) => {
+                            const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
+                            newLinks[index] = e.target.value;
+                            setEditData({...editData, budgetDataLinks: newLinks});
+                          }}
+                          className="flex-1 p-2 border border-gray-300 rounded-md"
+                          placeholder="Budget data link"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
+                            newLinks.splice(index, 1);
+                            setEditData({...editData, budgetDataLinks: newLinks});
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <div className="mt-2">
+                        <div className="text-sm text-gray-500 mb-1">OR</div>
+                        <FileUploadField 
+                          onUploadComplete={(url) => handleFileUploadComplete('budgetDataLinks', index, url)} 
+                          fieldName="budget-data"
+                        />
+                      </div>
+                      
+                      {link && link.startsWith('http') && (
+                        <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                          <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                            {link.split('/').pop() || 'View file'}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentLinks = editData.budgetDataLinks || workshop.budgetDataLinks || [];
+                      setEditData({...editData, budgetDataLinks: [...currentLinks, '']});
+                    }}
+                    className="flex items-center text-sm text-gray-700 hover:text-black"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    Budget Documents
-                  </h3>
-                  <div className="space-y-2">
-                    {workshop.budgetDataLinks.map((link, index) => (
-                      link && <a 
-                        key={index}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                      >
-                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Budget Document {index + 1}
-                      </a>
-                    ))}
-                  </div>
+                    Add Budget Data
+                  </button>
                 </div>
-              )}
-
-              {/* Participants Lists */}
-              {workshop.participantsLinks?.length > 0 && workshop.participantsLinks[0] && (
-                <div className="resource-card">
-                  <h3 className="font-medium text-lg mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    Participants Lists
-                  </h3>
-                  <div className="space-y-2">
-                    {workshop.participantsLinks.map((link, index) => (
-                      link && <a 
-                        key={index}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                      >
-                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Participants List {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Certificate Templates */}
-              {workshop.certificateLinks?.length > 0 && workshop.certificateLinks[0] && (
-                <div className="resource-card">
-                  <h3 className="font-medium text-lg mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                    </svg>
-                    Certificate Templates
-                  </h3>
-                  <div className="space-y-2">
-                    {workshop.certificateLinks.map((link, index) => (
-                      <a 
-                        key={index}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                      >
-                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        Certificate Template {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Resource Person Documents */}
-              {workshop.resourcePersonDocLinks?.length > 0 && workshop.resourcePersonDocLinks[0] && (
-                <div className="resource-card">
-                  <h3 className="font-medium text-lg mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Resource Person Documents
-                  </h3>
-                  <div className="space-y-2">
-                    {workshop.resourcePersonDocLinks.map((link, index) => (
-                      <a 
-                        key={index}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                      >
-                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Resource Person Document {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Attendance Sheets */}
-              {workshop.attendanceSheetLinks?.length > 0 && workshop.attendanceSheetLinks[0] && (
-                <div className="resource-card">
-                  <h3 className="font-medium text-lg mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    Attendance Sheets
-                  </h3>
-                  <div className="space-y-2">
-                    {workshop.attendanceSheetLinks.map((link, index) => (
-                      <a 
-                        key={index}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                      >
-                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Attendance Sheet {index + 1}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -930,7 +1033,7 @@ function EventDetails() {
                                  rel="noopener noreferrer" 
                                  className="text-sm text-blue-600 hover:text-blue-800 truncate hover:underline flex items-center justify-center py-1.5 px-3 bg-white rounded-full shadow-sm border border-gray-100 hover:shadow transition-all">
                                 <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                                 </svg>
                                 View full image
                               </a>
@@ -1188,13 +1291,29 @@ function EventDetails() {
                             </div>
                             
                             {link && link.startsWith('http') && (
-                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
-                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              <div className="mt-4">
+                                <div className="text-sm font-medium text-gray-700 mb-2">Current Poster:</div>
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                                  <div className="w-full h-48 bg-white rounded overflow-hidden mb-3 shadow-inner relative">
+                                    <img 
+                                      src={link} 
+                                      alt="Poster preview" 
+                                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-3 opacity-0 hover:opacity-100 transition-opacity">
+                                      <span className="text-white text-sm font-medium truncate block">{link.split('/').pop()}</span>
+                                    </div>
+                                  </div>
+                                  <a href={link} 
+                                     target="_blank" 
+                                     rel="noopener noreferrer" 
+                                     className="text-sm text-blue-600 hover:text-blue-800 truncate hover:underline flex items-center justify-center py-1.5 px-3 bg-white rounded-full shadow-sm border border-gray-100 hover:shadow transition-all">
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                                 </svg>
-                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
-                                  {link.split('/').pop() || 'View file'}
-                                </a>
+                                View full image
+                              </a>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1310,7 +1429,7 @@ function EventDetails() {
                                   setEditData({...editData, circularLinks: newLinks});
                                 }}
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"
-                              >
+                                                           >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -1382,7 +1501,7 @@ function EventDetails() {
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                               </button>
                             </div>
@@ -1398,7 +1517,7 @@ function EventDetails() {
                             {link && link.startsWith('http') && (
                               <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
                                 <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
                                   {link.split('/').pop() || 'View file'}
@@ -1605,7 +1724,7 @@ function EventDetails() {
                             {link && link.startsWith('http') && (
                               <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
                                 <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
                                   {link.split('/').pop() || 'View file'}
@@ -1939,7 +2058,7 @@ function EventDetails() {
                 onClick={() => setDeleteConfirm(false)}
                 className="text-gray-500 hover:text-black p-2 rounded-md hover:bg-gray-100"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1963,6 +2082,168 @@ function EventDetails() {
                 >
                   Delete Workshop
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grant Access Modal with Enhanced User Selection */}
+      {showAccessModal && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-blue-600">Grant Edit Access</h2>
+              <button 
+                onClick={() => setShowAccessModal(false)}
+                className="text-gray-500 hover:text-black p-2 rounded-md hover:bg-gray-100"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                {/* User Selection with Filtering */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Users
+                  </label>
+                  
+                  {/* User search input and dropdown */}
+                  <div className="relative mb-3 user-dropdown-container">
+                    {loadingUsers ? (
+                      <div className="flex justify-center items-center h-10 bg-gray-50 border border-gray-300 rounded-md p-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          className="w-full p-2 border border-gray-300 rounded-md pr-10"
+                          placeholder="Type to search users..."
+                          value={userSearchTerm || ''}
+                          onChange={(e) => setUserSearchTerm(e.target.value)}
+                          onClick={() => setShowUserDropdown(true)}
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        
+                        {/* Filtered user dropdown */}
+                        {showUserDropdown && (
+                          <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 overflow-auto border border-gray-200">
+                            {filteredUsers.length > 0 ? (
+                              filteredUsers.map(user => (
+                                <div 
+                                  key={user.username} 
+                                  className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                  onClick={() => {
+                                    if (!selectedUsers.includes(user.username)) {
+                                      setSelectedUsers([...selectedUsers, user.username]);
+                                      setUserSearchTerm('');
+                                    }
+                                  }}
+                                >
+                                  <div>
+                                    <span className="font-medium">{user.username}</span>
+                                    {user.email && <span className="text-sm text-gray-500 ml-2">({user.email})</span>}
+                                  </div>
+                                  <div
+                                    className={`p-1 rounded-full ${
+                                      selectedUsers.includes(user.username) 
+                                        ? 'bg-green-100 text-green-600' 
+                                        : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                    }`}
+                                  >
+                                    {selectedUsers.includes(user.username) ? (
+                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-4 py-2 text-sm text-gray-500">No matching users found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Selected users display */}
+                  {selectedUsers.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Selected users: {selectedUsers.length}</div>
+                      <div className="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-md bg-gray-50">
+                        {selectedUsers.map(username => (
+                          <span key={username} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
+                            {username}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUsers(selectedUsers.filter(u => u !== username))}
+                              className="ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:text-blue-600 focus:outline-none"
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Expiry Date Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Access Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    value={accessExpiry}
+                    onChange={(e) => setAccessExpiry(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="border-t border-gray-200 pt-4 mt-6">
+                  <p className="text-sm text-gray-500 mb-4">
+                    Selected users will be able to edit this workshop until the expiry date.
+                  </p>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowAccessModal(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGrantAccess}
+                      disabled={selectedUsers.length === 0 || !accessExpiry}
+                      className={`px-4 py-2 bg-blue-600 text-white rounded-md ${
+                        selectedUsers.length === 0 || !accessExpiry 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:bg-blue-700'
+                      }`}
+                    >
+                      Grant Access to {selectedUsers.length} {selectedUsers.length === 1 ? 'User' : 'Users'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

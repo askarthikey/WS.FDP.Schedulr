@@ -43,15 +43,6 @@ const CreateWorkshop = () => {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
     setCurrentUser(user);
-    
-    if (user && user.username) {
-      // Add current user to editAccessUsers by default
-      setFormData(prev => ({
-        ...prev,
-        editAccessUsers: [user.username]
-      }));
-    }
-    
     // Initialize Supabase storage
     ensureStorageBucket();
   }, []);
@@ -168,13 +159,6 @@ const CreateWorkshop = () => {
           });
         }
       });
-      
-      // Ensure current user is in editAccessUsers
-      if (currentUser && currentUser.username) {
-        if (!cleanData.editAccessUsers.includes(currentUser.username)) {
-          cleanData.editAccessUsers.push(currentUser.username);
-        }
-      }
       
       const response = await fetch(`${BackendURL}/workshopApi/create`, {
         method: 'POST',

@@ -12,6 +12,18 @@ workshopApp.use((req, res, next) => {
   next();
 });
 
+// Admin authentication middleware
+const verifyAdmin = expressAsyncHandler(async (req, res, next) => {
+  // User must be authenticated first
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  if (req.user.isAdmin !== "true") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+});
+
 // Authentication middleware
 const verifyToken = expressAsyncHandler(async (req, res, next) => {
   try {
@@ -99,10 +111,29 @@ workshopApp.put('/editwks/:eventTitle', verifyToken, expressAsyncHandler(async(r
     if (!existingWorkshop) {
       return res.status(404).json({ message: "Workshop not found" });
     }
+    const isAdmin = req.user.isAdmin === "true";
     
-    // Check if user is the creator of the workshop or an admin
-    if (existingWorkshop.createdBy !== req.user.username && req.user.role !== 'admin') {
-      return res.status(403).json({ message: "You don't have permission to edit this workshop" });
+    if (!isAdmin) {
+      // Check if user is in editAccessUsers array
+      const hasAccess = existingWorkshop.editAccessUsers && 
+        existingWorkshop.editAccessUsers.includes(req.user.username);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have permission to edit this workshop" });
+      }
+      
+      // Check if access has expired
+      const username = req.user.username;
+      const expiryDate = existingWorkshop.accessExpiry?.[username];
+      
+      if (expiryDate) {
+        const expiryDateTime = new Date(expiryDate).getTime();
+        const currentTime = new Date().getTime();
+        
+        if (currentTime > expiryDateTime) {
+          return res.status(403).json({ message: "Your edit access has expired" });
+        }
+      }
     }
     
     // Prevent changing the creator
@@ -135,9 +166,8 @@ workshopApp.delete('/delwks/:eventTitle', verifyToken, expressAsyncHandler(async
     if (!existingWorkshop) {
       return res.status(404).json({ message: "Workshop not found" });
     }
-    
-    // Check if user is the creator of the workshop or an admin
-    if (existingWorkshop.createdBy !== req.user.username && req.user.role !== 'admin') {
+    // Check if user is an admin
+    if (req.user.isAdmin !== 'true') {
       return res.status(403).json({ message: "You don't have permission to delete this workshop" });
     }
     
@@ -161,6 +191,54 @@ workshopApp.get('/sortedgetwks', expressAsyncHandler(async(req, res) => {
     return res.status(200).json({ message: "Retrieved Successfully", details: sortedwks });
   } catch (error) {
     return res.status(500).json({ message: "Error retrieving sorted workshops", error: error.message });
+  }
+}));
+
+
+// Grant access to a user to edit a workshop - Protected route
+workshopApp.put('/grantAccess/:eventTitle', verifyToken, verifyAdmin, expressAsyncHandler(async(req, res) => {
+  try {
+    const workshopCollection = req.workshopCollection;
+    const title = req.params.eventTitle;
+    const { username, expiryDate } = req.body;
+    
+    // Validate input
+    if (!username || !expiryDate) {
+      return res.status(400).json({ message: "Username and expiry date are required" });
+    }
+    
+    // Check if workshop exists
+    const existingWorkshop = await workshopCollection.findOne({ eventTitle: title });
+    if (!existingWorkshop) {
+      return res.status(404).json({ message: "Workshop not found" });
+    }
+    
+    // Check if user has permission to grant access (creator or admin)
+    if (req.user.isAdmin !== "true") {
+      return res.status(403).json({ message: "You don't have permission to modify access for this workshop" });
+    }
+    
+    // Update or add the user to editAccessUsers array
+    const result = await workshopCollection.updateOne(
+      { eventTitle: title }, 
+      { 
+        $addToSet: { editAccessUsers: username },
+        $set: { [`accessExpiry.${username}`]: expiryDate } 
+      }
+    );
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Workshop not found" });
+    }
+    
+    return res.status(200).json({ 
+      message: "Access granted successfully", 
+      username: username,
+      expiryDate: expiryDate 
+    });
+    
+  } catch (error) {
+    return res.status(500).json({ message: "Error granting access", error: error.message });
   }
 }));
 

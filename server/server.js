@@ -4,6 +4,7 @@ const dotenv = require("dotenv").config();
 const userApp = require("./APIs/userApi");
 const workshopApp = require("./APIs/workshopApi");
 const cors = require('cors');
+const cron = require('node-cron');
 
 const app = express();
 app.use(cors());
@@ -22,10 +23,70 @@ MongoClient.connect(process.env.DB_URL)
     app.set("usersCollection", usersCollection);
     app.set("workshopCollection", workshopCollection);
     
+    // Set up daily cleanup job for expired access
+    setupDailyCleanup(workshopCollection);
+    
     // Confirm db connection status
     console.log("DB connection successful!!");
   })
   .catch(err => console.log("Error in connection of database", err.message));
+
+// Function to set up daily cleanup job
+function setupDailyCleanup(workshopCollection) {
+  // Schedule to run at midnight every day (00:00)
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      console.log("Running daily cleanup for expired workshop access...");
+      const currentDate = new Date();
+      
+      // Find all workshops that have accessExpiry field
+      const workshops = await workshopCollection.find({ accessExpiry: { $exists: true } }).toArray();
+      
+      for (const workshop of workshops) {
+        const accessExpiry = workshop.accessExpiry || {};
+        const editAccessUsers = workshop.editAccessUsers || [];
+        const usersToRemove = [];
+        let needsUpdate = false;
+        
+        // Check each user's expiry date
+        for (const [username, expiryDateStr] of Object.entries(accessExpiry)) {
+          const expiryDate = new Date(expiryDateStr);
+          
+          if (currentDate > expiryDate) {
+            // Access has expired
+            delete accessExpiry[username];
+            usersToRemove.push(username);
+            needsUpdate = true;
+          }
+        }
+        
+        if (needsUpdate) {
+          // Filter out expired users while keeping admins
+          const updatedEditAccessUsers = editAccessUsers.filter(user => !usersToRemove.includes(user));
+          
+          // Update the document in the database
+          await workshopCollection.updateOne(
+            { _id: workshop._id },
+            { 
+              $set: { 
+                accessExpiry: accessExpiry,
+                editAccessUsers: updatedEditAccessUsers
+              }
+            }
+          );
+          
+          console.log(`Cleaned up expired access for workshop '${workshop.eventTitle}' - Removed ${usersToRemove.length} users`);
+        }
+      }
+      
+      console.log("Daily cleanup completed successfully");
+    } catch (error) {
+      console.error("Error during daily cleanup:", error);
+    }
+  });
+  
+  console.log("Daily cleanup job scheduled");
+}
 
 app.use("/userApi", userApp);
 app.use("/workshopApi", workshopApp);

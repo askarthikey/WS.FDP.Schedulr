@@ -55,42 +55,71 @@ function Profile() {
       const data = await response.json();
       
       if (response.ok && data.Workshops) {
-        // Calculate statistics
         const allWorkshops = data.Workshops;
-        // Workshops where the user is the creator or has edit access
-        const userWorkshops = allWorkshops.filter(w => 
-          w.editAccessUsers && w.editAccessUsers.includes(username)
-        );
-        
         const now = new Date();
         
-        // Status-based filtering
-        const upcomingWorkshops = userWorkshops.filter(w => {
-          const startDate = new Date(w.eventStDate);
-          return now < startDate;
-        });
-        
-        const ongoingWorkshops = userWorkshops.filter(w => {
-          const startDate = new Date(w.eventStDate);
-          const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(startDate);
-          endDate.setHours(23, 59, 59); // End of the day
-          return now >= startDate && now <= endDate;
-        });
-        
-        const completedWorkshops = userWorkshops.filter(w => {
-          const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(w.eventStDate);
-          endDate.setHours(23, 59, 59); // End of the day
-          return now > endDate;
-        });
-        
-        setUserStats({
-          totalCreated: userWorkshops.filter(w => w.editAccessUsers[0] === username).length,
-          upcoming: upcomingWorkshops.length,
-          ongoing: ongoingWorkshops.length,
-          completed: completedWorkshops.length,
-          createdWorkshops: userWorkshops.filter(w => w.editAccessUsers[0] === username),
-          contributedWorkshops: userWorkshops.filter(w => w.editAccessUsers[0] !== username)
-        });
+        // Different handling for admin vs regular users
+        if (JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}').isAdmin === 'true') {
+          // Admin stats based on ALL workshops
+          const upcomingWorkshops = allWorkshops.filter(w => {
+            const startDate = new Date(w.eventStDate);
+            return now < startDate;
+          });
+          
+          const ongoingWorkshops = allWorkshops.filter(w => {
+            const startDate = new Date(w.eventStDate);
+            const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(startDate);
+            endDate.setHours(23, 59, 59); // End of the day
+            return now >= startDate && now <= endDate;
+          });
+          
+          const completedWorkshops = allWorkshops.filter(w => {
+            const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(w.eventStDate);
+            endDate.setHours(23, 59, 59); // End of the day
+            return now > endDate;
+          });
+          
+          setUserStats({
+            totalCreated: allWorkshops.length,
+            upcoming: upcomingWorkshops.length,
+            ongoing: ongoingWorkshops.length,
+            completed: completedWorkshops.length,
+            allWorkshops: allWorkshops.sort((a, b) => new Date(b.eventStDate) - new Date(a.eventStDate))
+          });
+        } else {
+          // Regular user - only count workshops they have access to
+          const userWorkshops = allWorkshops.filter(w => 
+            w.editAccessUsers && w.editAccessUsers.includes(username)
+          );
+          
+          const upcomingWorkshops = userWorkshops.filter(w => {
+            const startDate = new Date(w.eventStDate);
+            return now < startDate;
+          });
+          
+          const ongoingWorkshops = userWorkshops.filter(w => {
+            const startDate = new Date(w.eventStDate);
+            const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(startDate);
+            endDate.setHours(23, 59, 59); // End of the day
+            return now >= startDate && now <= endDate;
+          });
+          
+          const completedWorkshops = userWorkshops.filter(w => {
+            const endDate = w.eventEndDate ? new Date(w.eventEndDate) : new Date(w.eventStDate);
+            endDate.setHours(23, 59, 59); // End of the day
+            return now > endDate;
+          });
+          
+          setUserStats({
+            totalCreated: userWorkshops.filter(w => w.editAccessUsers[0] === username).length,
+            upcoming: upcomingWorkshops.length,
+            ongoing: ongoingWorkshops.length,
+            completed: completedWorkshops.length,
+            createdWorkshops: userWorkshops.filter(w => w.editAccessUsers[0] === username),
+            contributedWorkshops: userWorkshops.filter(w => w.editAccessUsers[0] !== username),
+            allWorkshops: userWorkshops
+          });
+        }
       }
     } catch (err) {
       console.error("Error fetching user statistics:", err);
@@ -406,7 +435,7 @@ function Profile() {
                     Overview
                   </button>
                 </li>
-                <li>
+                {!currentUser.isAdmin==='true' &&(<li>
                   <button
                     onClick={() => setActiveSection('workshops')}
                     className={`w-full flex items-center p-4 rounded-lg transition-colors text-lg ${
@@ -418,7 +447,7 @@ function Profile() {
                     </svg>
                     My Workshops
                   </button>
-                </li>
+                </li>)}
                 <li>
                   <button
                     onClick={() => setActiveSection('account')}
@@ -448,27 +477,56 @@ function Profile() {
                 </li>
               </ul>
             </nav>
+
+
             
             {/* Quick Stats */}
             <div className="bg-gray-50 p-6 rounded-xl">
-              <h3 className="text-lg font-medium text-gray-700 mb-4">Workshop Statistics</h3>
+              <h3 className="text-lg font-medium text-gray-700 mb-4">
+                {currentUser.isAdmin === 'true' ? 'System Statistics' : 'Workshop Statistics'}
+              </h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-3xl font-bold">{userStats?.totalCreated || 0}</p>
-                  <p className="text-sm text-gray-500 mt-1">Created</p>
-                </div>
-                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-3xl font-bold">{userStats?.upcoming || 0}</p>
-                  <p className="text-sm text-gray-500 mt-1">Upcoming</p>
-                </div>
-                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-3xl font-bold">{userStats?.ongoing || 0}</p>
-                  <p className="text-sm text-gray-500 mt-1">Ongoing</p>
-                </div>
-                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-3xl font-bold">{userStats?.completed || 0}</p>
-                  <p className="text-sm text-gray-500 mt-1">Completed</p>
-                </div>
+                {currentUser.isAdmin === 'true' ? (
+                  // Admin stats
+                  <>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.totalCreated || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Total Workshops</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.upcoming || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Upcoming</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.ongoing || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Ongoing</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.completed || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Completed</p>
+                    </div>
+                  </>
+                ) : (
+                  // Regular user stats
+                  <>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.totalCreated || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Created</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.upcoming || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Upcoming</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.ongoing || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Ongoing</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-3xl font-bold">{userStats?.completed || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">Completed</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -604,7 +662,8 @@ function Profile() {
                   {/* Recent Activity */}
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Recent Workshops</h3>
-                    {userStats?.createdWorkshops && userStats.createdWorkshops.length > 0 ? (
+                    {currentUser.isAdmin === 'true' ? (
+                      // Admin view - shows all recent workshops
                       <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
@@ -616,12 +675,15 @@ function Profile() {
                                 Date
                               </th>
                               <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                Creator
+                              </th>
+                              <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                               </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {userStats.createdWorkshops.slice(0, 5).map((workshop, index) => {
+                            {userStats?.allWorkshops?.slice(0, 5).map((workshop, index) => {
                               const now = new Date();
                               const startDate = new Date(workshop.eventStDate);
                               const endDate = workshop.eventEndDate ? new Date(workshop.eventEndDate) : new Date(startDate);
@@ -651,6 +713,9 @@ function Profile() {
                                   <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
                                     {formatDate(workshop.eventStDate)}
                                   </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
+                                    {workshop.createdBy || workshop.editAccessUsers?.[0] || 'Unknown'}
+                                  </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${statusClass}`}>
                                       {status}
@@ -661,30 +726,101 @@ function Profile() {
                             })}
                           </tbody>
                         </table>
-                        {userStats.createdWorkshops.length > 5 && (
-                          <div className="px-6 py-4 bg-gray-50 text-center">
-                            <button 
-                              onClick={() => setActiveSection('workshops')}
-                              className="text-base text-gray-700 hover:text-black font-medium"
-                            >
-                              View all workshops
-                            </button>
-                          </div>
-                        )}
+                        <div className="px-6 py-4 bg-gray-50 text-center">
+                          <button 
+                            onClick={() => setActiveSection('workshops')}
+                            className="text-base text-gray-700 hover:text-black font-medium"
+                          >
+                            View all workshops
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-center py-16 bg-gray-50 rounded-xl">
-                        <p className="text-gray-500 text-lg mb-4">No workshops created yet</p>
-                        <a 
-                          href="/create-workshop" 
-                          className="inline-flex items-center px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-base"
-                        >
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                          </svg>
-                          Create your first workshop
-                        </a>
-                      </div>
+                      // Regular user view - shows only their workshops
+                      userStats?.createdWorkshops && userStats.createdWorkshops.length > 0 ? (
+                        <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                          {/* Existing table code for user's workshops */}
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                  Workshop
+                                </th>
+                                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                  Date
+                                </th>
+                                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                  Status
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {userStats.createdWorkshops.slice(0, 5).map((workshop, index) => {
+                                // Existing workshop mapping code
+                                const now = new Date();
+                                const startDate = new Date(workshop.eventStDate);
+                                const endDate = workshop.eventEndDate ? new Date(workshop.eventEndDate) : new Date(startDate);
+                                
+                                let status, statusClass;
+                                if (now < startDate) {
+                                  status = "Upcoming";
+                                  statusClass = "bg-blue-100 text-blue-800";
+                                } else if (now <= endDate) {
+                                  status = "In Progress";
+                                  statusClass = "bg-green-100 text-green-800";
+                                } else {
+                                  status = "Completed";
+                                  statusClass = "bg-gray-100 text-gray-800";
+                                }
+                                
+                                return (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <a 
+                                        href={`/workshops/${encodeURIComponent(workshop.eventTitle)}`}
+                                        className="text-black hover:underline text-lg font-medium"
+                                      >
+                                        {workshop.eventTitle}
+                                      </a>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
+                                      {formatDate(workshop.eventStDate)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${statusClass}`}>
+                                        {status}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {userStats.createdWorkshops.length > 5 && (
+                            <div className="px-6 py-4 bg-gray-50 text-center">
+                              <button 
+                                onClick={() => setActiveSection('workshops')}
+                                className="text-base text-gray-700 hover:text-black font-medium"
+                              >
+                                View all workshops
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-16 bg-gray-50 rounded-xl">
+                          <p className="text-gray-500 text-lg mb-4">No workshops created yet</p>
+                          <a 
+                            href="/create-workshop" 
+                            className="inline-flex items-center px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-base"
+                          >
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Create your first workshop
+                          </a>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>

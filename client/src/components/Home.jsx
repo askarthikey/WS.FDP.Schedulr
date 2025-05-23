@@ -542,9 +542,9 @@ const Home = () => {
                       View
                     </Link>
                     
-                    {hasEditAccess(workshop) && (
+                    {(hasEditAccess(workshop) || currentUser.isAdmin==='true') && (
                       <button
-                        onClick={() => navigate(`/edit-workshop/${encodeURIComponent(workshop.eventTitle)}`)}
+                        onClick={() => navigate(`/workshops/${ encodeURIComponent(workshop.eventTitle.toLowerCase().replace(/\s+/g, '-'))}`,{ state: { workshop } })}
                         className="ml-2 text-gray-400 hover:text-gray-600"
                         aria-label="Edit workshop"
                       >
