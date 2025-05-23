@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FileUploadField from './FileUploadField';
+import { supabase, ensureStorageBucket } from '../utils/supabaseClient';
 const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 const CreateWorkshop = () => {
@@ -49,6 +51,9 @@ const CreateWorkshop = () => {
         editAccessUsers: [user.username]
       }));
     }
+    
+    // Initialize Supabase storage
+    ensureStorageBucket();
   }, []);
 
   // Generic handler for simple input fields
@@ -114,6 +119,17 @@ const CreateWorkshop = () => {
       newArray.splice(index, 1);
       return { ...prev, [field]: newArray };
     });
+  };
+
+  // Add a function to handle file upload completion
+  const handleFileUploadComplete = (field, index, url) => {
+    if (Array.isArray(formData[field])) {
+      const newArray = [...formData[field]];
+      newArray[index] = url;
+      setFormData(prev => ({ ...prev, [field]: newArray }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: url }));
+    }
   };
 
   // Form submission
@@ -269,14 +285,33 @@ const CreateWorkshop = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Thumbnail URL
               </label>
-              <input
-                type="text"
-                name="thumbnail"
-                placeholder="https://example.com/image.jpg"
-                value={formData.thumbnail}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-              />
+              <div className="mb-4 p-4 border border-gray-100 rounded-lg">
+                <input
+                  type="text"
+                  name="thumbnail"
+                  placeholder="https://example.com/image.jpg"
+                  value={formData.thumbnail}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black mb-2"
+                />
+                
+                <div className="mt-2">
+                  <div className="text-sm text-gray-500 mb-1">OR</div>
+                  <FileUploadField 
+                    onUploadComplete={(url) => handleFileUploadComplete('thumbnail', null, url)} 
+                    fieldName="thumbnails"
+                  />
+                </div>
+                
+                {formData.thumbnail && formData.thumbnail.startsWith('http') && (
+                  <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                    <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm text-gray-600 truncate">{formData.thumbnail}</span>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div>
@@ -451,23 +486,42 @@ const CreateWorkshop = () => {
                   Event Posters
                 </label>
                 {formData.eventPosterLinks.map((link, index) => (
-                  <div key={`poster-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Poster link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'eventPosterLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('eventPosterLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`poster-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Poster link (URL)"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'eventPosterLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('eventPosterLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('eventPosterLinks', index, url)} 
+                        fieldName="posters"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -478,7 +532,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Poster Link
+                  Add Poster
                 </button>
               </div>
               
@@ -487,23 +541,42 @@ const CreateWorkshop = () => {
                   Brochures
                 </label>
                 {formData.brochureLinks.map((link, index) => (
-                  <div key={`brochure-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Brochure link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'brochureLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('brochureLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`brochure-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Brochure link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'brochureLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('brochureLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('brochureLinks', index, url)} 
+                        fieldName="brochures"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -514,7 +587,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Brochure Link
+                  Add Brochure
                 </button>
               </div>
               
@@ -523,23 +596,42 @@ const CreateWorkshop = () => {
                   Circulars
                 </label>
                 {formData.circularLinks.map((link, index) => (
-                  <div key={`circular-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Circular link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'circularLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('circularLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`circular-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Circular link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'circularLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('circularLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('circularLinks', index, url)} 
+                        fieldName="circulars"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -550,7 +642,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Circular Link
+                  Add Circular
                 </button>
               </div>
             </div>
@@ -561,23 +653,42 @@ const CreateWorkshop = () => {
                   Attendance Sheets
                 </label>
                 {formData.attendanceSheetLinks.map((link, index) => (
-                  <div key={`attendance-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Attendance sheet link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'attendanceSheetLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('attendanceSheetLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`attendance-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Attendance sheet link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'attendanceSheetLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('attendanceSheetLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('attendanceSheetLinks', index, url)} 
+                        fieldName="attendance-sheets"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -588,7 +699,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Attendance Sheet Link
+                  Add Attendance Sheet
                 </button>
               </div>
               
@@ -597,23 +708,42 @@ const CreateWorkshop = () => {
                   Photos
                 </label>
                 {formData.photosLinks.map((link, index) => (
-                  <div key={`photo-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Photo link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'photosLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('photosLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`photo-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Photo link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'photosLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('photosLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('photosLinks', index, url)} 
+                        fieldName="photos"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -624,7 +754,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Photo Link
+                  Add Photo
                 </button>
               </div>
               
@@ -633,23 +763,42 @@ const CreateWorkshop = () => {
                   Schedules
                 </label>
                 {formData.scheduleLinks.map((link, index) => (
-                  <div key={`schedule-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Schedule link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'scheduleLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('scheduleLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`schedule-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Schedule link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'scheduleLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('scheduleLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('scheduleLinks', index, url)} 
+                        fieldName="schedules"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -660,7 +809,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Schedule Link
+                  Add Schedule
                 </button>
               </div>
             </div>
@@ -679,23 +828,42 @@ const CreateWorkshop = () => {
                   Budget Data
                 </label>
                 {formData.budgetDataLinks.map((link, index) => (
-                  <div key={`budget-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Budget data link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'budgetDataLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('budgetDataLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`budget-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Budget data link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'budgetDataLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('budgetDataLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('budgetDataLinks', index, url)} 
+                        fieldName="budget-data"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -706,7 +874,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Budget Data Link
+                  Add Budget Data
                 </button>
               </div>
               
@@ -716,23 +884,42 @@ const CreateWorkshop = () => {
                   Participants List
                 </label>
                 {formData.participantsLinks.map((link, index) => (
-                  <div key={`participants-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Participants list link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'participantsLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('participantsLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`participants-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Participants list link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'participantsLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('participantsLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('participantsLinks', index, url)} 
+                        fieldName="participants-lists"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -743,7 +930,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Participants List Link
+                  Add Participants List
                 </button>
               </div>
               
@@ -753,23 +940,42 @@ const CreateWorkshop = () => {
                   Certificate Templates
                 </label>
                 {formData.certificateLinks.map((link, index) => (
-                  <div key={`certificate-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Certificate template link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'certificateLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('certificateLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`certificate-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Certificate template link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'certificateLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('certificateLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('certificateLinks', index, url)} 
+                        fieldName="certificates"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -780,7 +986,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Certificate Template Link
+                  Add Certificate Template
                 </button>
               </div>
             </div>
@@ -807,23 +1013,42 @@ const CreateWorkshop = () => {
                   Permission Letters
                 </label>
                 {formData.permissionLetterLinks.map((link, index) => (
-                  <div key={`permission-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Permission letter link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'permissionLetterLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('permissionLetterLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`permission-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Permission letter link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'permissionLetterLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('permissionLetterLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('permissionLetterLinks', index, url)} 
+                        fieldName="permission-letters"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -834,7 +1059,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Permission Letter Link
+                  Add Permission Letter
                 </button>
               </div>
               
@@ -844,23 +1069,42 @@ const CreateWorkshop = () => {
                   Resource Person Documents
                 </label>
                 {formData.resourcePersonDocLinks.map((link, index) => (
-                  <div key={`resource-doc-${index}`} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Resource person document link"
-                      value={link}
-                      onChange={(e) => handleArrayInputChange(index, 'resourcePersonDocLinks', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('resourcePersonDocLinks', index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={`resource-doc-${index}`} className="mb-4 p-4 border border-gray-100 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Resource person document link"
+                        value={link}
+                        onChange={(e) => handleArrayInputChange(index, 'resourcePersonDocLinks', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeArrayItem('resourcePersonDocLinks', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="text-sm text-gray-500 mb-1">OR</div>
+                      <FileUploadField 
+                        onUploadComplete={(url) => handleFileUploadComplete('resourcePersonDocLinks', index, url)} 
+                        fieldName="resource-person-docs"
+                      />
+                    </div>
+                    
+                    {link && link.startsWith('http') && (
+                      <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-600 truncate">{link}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button 
@@ -871,7 +1115,7 @@ const CreateWorkshop = () => {
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add Resource Person Document Link
+                  Add Resource Person Document
                 </button>
               </div>
             </div>
