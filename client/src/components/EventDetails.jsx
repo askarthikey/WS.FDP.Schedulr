@@ -403,11 +403,12 @@ const checkAccessExpiry = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserDropdown]);
 
-  // Update openAccessModal to reset the search term as well
+  // Update the openAccessModal function
   const openAccessModal = () => {
     setShowAccessModal(true);
     fetchAllUsers();
-    setSelectedUsers([]);
+    // Initialize selectedUsers with users who already have access
+    setSelectedUsers(workshop.editAccessUsers || []);
     setUserSearchTerm('');
     setAccessExpiry('');
   };
@@ -1291,29 +1292,13 @@ const checkAccessExpiry = () => {
                             </div>
                             
                             {link && link.startsWith('http') && (
-                              <div className="mt-4">
-                                <div className="text-sm font-medium text-gray-700 mb-2">Current Poster:</div>
-                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                                  <div className="w-full h-48 bg-white rounded overflow-hidden mb-3 shadow-inner relative">
-                                    <img 
-                                      src={link} 
-                                      alt="Poster preview" 
-                                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                                    />
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-3 opacity-0 hover:opacity-100 transition-opacity">
-                                      <span className="text-white text-sm font-medium truncate block">{link.split('/').pop()}</span>
-                                    </div>
-                                  </div>
-                                  <a href={link} 
-                                     target="_blank" 
-                                     rel="noopener noreferrer" 
-                                     className="text-sm text-blue-600 hover:text-blue-800 truncate hover:underline flex items-center justify-center py-1.5 px-3 bg-white rounded-full shadow-sm border border-gray-100 hover:shadow transition-all">
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m-2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                View full image
-                              </a>
-                                </div>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
                               </div>
                             )}
                           </div>
@@ -1377,7 +1362,7 @@ const checkAccessExpiry = () => {
                             
                             {link && link.startsWith('http') && (
                               <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
-                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="h-5 w-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                                 </svg>
                                 <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
@@ -1429,7 +1414,7 @@ const checkAccessExpiry = () => {
                                   setEditData({...editData, circularLinks: newLinks});
                                 }}
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"
-                                                           >
+                              >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -1446,7 +1431,7 @@ const checkAccessExpiry = () => {
                             
                             {link && link.startsWith('http') && (
                               <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
-                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="h-5 w-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                                 </svg>
                                 <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
@@ -1570,7 +1555,7 @@ const checkAccessExpiry = () => {
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                               </button>
                             </div>
@@ -1725,11 +1710,11 @@ const checkAccessExpiry = () => {
                               <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
                                 <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
-                                  {link.split('/').pop() || 'View file'}
-                                </a>
-                              </div>
+                              </svg>
+                              <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                {link.split('/').pop() || 'View file'}
+                              </a>
+                            </div>
                             )}
                           </div>
                         ))}
@@ -2106,6 +2091,50 @@ const checkAccessExpiry = () => {
             
             <div className="p-6">
               <div className="space-y-4">
+                {/* Users with existing access */}
+                {workshop.editAccessUsers && workshop.editAccessUsers.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">
+                      Users with Existing Access:
+                    </h3>
+                    <div className="p-3 border border-gray-200 rounded-md bg-gray-50 max-h-48 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="text-left py-2 font-medium">Username</th>
+                            <th className="text-right py-2 font-medium">Expires</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workshop.editAccessUsers.map((username) => (
+                            <tr key={username} className="border-b border-gray-100 last:border-0">
+                              <td className="py-2 font-medium">
+                                {username}
+                                {username === workshop.createdBy && (
+                                  <span className="ml-2 inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                    Creator
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 text-right text-gray-600">
+                                {workshop.accessExpiry && workshop.accessExpiry[username] ? (
+                                  new Date(workshop.accessExpiry[username]).toLocaleDateString()
+                                ) : (
+                                  username === workshop.createdBy ? (
+                                    <span className="text-green-600">Never</span>
+                                  ) : (
+                                    <span className="text-yellow-600">Not set</span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
                 {/* User Selection with Filtering */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2149,9 +2178,28 @@ const checkAccessExpiry = () => {
                                     }
                                   }}
                                 >
-                                  <div>
+                                  <div className="flex items-center">
                                     <span className="font-medium">{user.username}</span>
                                     {user.email && <span className="text-sm text-gray-500 ml-2">({user.email})</span>}
+                                    
+                                    {/* Show indicator if user already has access */}
+                                    {workshop.editAccessUsers && workshop.editAccessUsers.includes(user.username) && (
+                                      <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                        Has Access
+                                        {workshop.accessExpiry && workshop.accessExpiry[user.username] && (
+                                          <span className="ml-1">
+                                            (Until {new Date(workshop.accessExpiry[user.username]).toLocaleDateString()})
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                    
+                                    {/* Indicate if this is the creator */}
+                                    {user.username === workshop.createdBy && (
+                                      <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                                        Creator
+                                      </span>
+                                    )}
                                   </div>
                                   <div
                                     className={`p-1 rounded-full ${
@@ -2222,7 +2270,9 @@ const checkAccessExpiry = () => {
                 {/* Action Buttons */}
                 <div className="border-t border-gray-200 pt-4 mt-6">
                   <p className="text-sm text-gray-500 mb-4">
-                    Selected users will be able to edit this workshop until the expiry date.
+                    {selectedUsers.some(user => workshop.editAccessUsers?.includes(user)) ? 
+                      "Existing users' access will be extended to the new expiry date. New users will gain access until the expiry date." :
+                      "Selected users will be able to edit this workshop until the expiry date."}
                   </p>
                   <div className="flex justify-end space-x-3">
                     <button
