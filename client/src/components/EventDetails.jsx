@@ -2175,6 +2175,7 @@ const checkAccessExpiry = () => {
                                     if (!selectedUsers.includes(user.username)) {
                                       setSelectedUsers([...selectedUsers, user.username]);
                                       setUserSearchTerm('');
+                                      setShowUserDropdown(false); // Close dropdown after selection
                                     }
                                   }}
                                 >
