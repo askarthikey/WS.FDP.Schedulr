@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import FileUploadField from './FileUploadField';
+import { ensureStorageBucket } from '../utils/supabaseClient';
 const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function EventDetails() {
@@ -21,6 +23,9 @@ function EventDetails() {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
     setCurrentUser(user);
+    
+    // Initialize Supabase storage
+    ensureStorageBucket();
   }, []);
 
   // Fetch workshop details if not passed through navigation state
@@ -234,6 +239,17 @@ function EventDetails() {
     } else {
       // Many resource types - adapt based on screen size
       return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'; // 1-2-3 columns
+    }
+  };
+
+  // Add this function before handleEditSubmit
+  const handleFileUploadComplete = (field, index, url) => {
+    if (Array.isArray(editData[field])) {
+      const newArray = [...(editData[field] || workshop[field] || [])];
+      newArray[index] = url;
+      setEditData({ ...editData, [field]: newArray });
+    } else {
+      setEditData({ ...editData, [field]: url });
     }
   };
 
@@ -548,6 +564,34 @@ function EventDetails() {
                 </div>
               )}
               
+              {/* Circulars */}
+              {workshop.circularLinks?.length > 0 && workshop.circularLinks[0] && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                    Circulars
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.circularLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Circular {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {/* Schedules */}
               {workshop.scheduleLinks?.length > 0 && (
                 <div className="resource-card">
@@ -745,34 +789,7 @@ function EventDetails() {
                   </div>
                 </div>
               )}
-              {/* Circulars */}
-          {workshop.circularLinks?.length > 0 && workshop.circularLinks[0] && (
-            <div className="resource-card">
-              <h3 className="font-medium text-lg mb-3 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                </svg>
-                Circulars
-              </h3>
-              <div className="space-y-2">
-                {workshop.circularLinks.map((link, index) => (
-                  link && <a 
-                    key={index}
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                  >
-                    <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Circular {index + 1}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
+              
               {/* Attendance Sheets */}
               {workshop.attendanceSheetLinks?.length > 0 && workshop.attendanceSheetLinks[0] && (
                 <div className="resource-card">
@@ -874,13 +891,53 @@ function EventDetails() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
-                      <input
-                        type="text"
-                        value={editData.thumbnail || workshop.thumbnail || ''}
-                        onChange={(e) => setEditData({...editData, thumbnail: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail Image</label>
+                      <div className="p-3 border border-gray-100 rounded-md">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <input
+                            type="text"
+                            value={editData.thumbnail || workshop.thumbnail || ''}
+                            onChange={(e) => setEditData({...editData, thumbnail: e.target.value})}
+                            className="flex-1 p-2 border border-gray-300 rounded-md"
+                            placeholder="Thumbnail URL"
+                          />
+                        </div>
+                        
+                        <div className="mt-2">
+                          <div className="text-sm text-gray-500 mb-1">OR</div>
+                          <FileUploadField 
+                            onUploadComplete={(url) => handleFileUploadComplete('thumbnail', null, url)} 
+                            fieldName="thumbnails"
+                          />
+                        </div>
+                        
+                        {(editData.thumbnail || workshop.thumbnail) && (editData.thumbnail || workshop.thumbnail).startsWith('http') && (
+                          <div className="mt-4">
+                            <div className="text-sm font-medium text-gray-700 mb-2">Current Thumbnail:</div>
+                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                              <div className="w-full h-48 bg-white rounded overflow-hidden mb-3 shadow-inner relative">
+                                <img 
+                                  src={editData.thumbnail || workshop.thumbnail} 
+                                  alt="Thumbnail preview" 
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-3 opacity-0 hover:opacity-100 transition-opacity">
+                                  <span className="text-white text-sm font-medium truncate block">{(editData.thumbnail || workshop.thumbnail).split('/').pop()}</span>
+                                </div>
+                              </div>
+                              <a href={editData.thumbnail || workshop.thumbnail} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer" 
+                                 className="text-sm text-blue-600 hover:text-blue-800 truncate hover:underline flex items-center justify-center py-1.5 px-3 bg-white rounded-full shadow-sm border border-gray-100 hover:shadow transition-all">
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                View full image
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div>
@@ -1088,375 +1145,31 @@ function EventDetails() {
                 <div className="bg-gray-50 p-5 rounded-lg">
                   <h4 className="font-medium text-lg mb-4">Workshop Materials</h4>
                   
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {/* Event Posters */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Event Posters</label>
-                      {(editData.eventPosterLinks || workshop.eventPosterLinks || []).map((link, index) => (
-                        <div key={`poster-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, eventPosterLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Poster link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, eventPosterLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.eventPosterLinks || workshop.eventPosterLinks || [];
-                          setEditData({...editData, eventPosterLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Poster Link
-                      </button>
-                    </div>
-                    
-                    {/* Brochures */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Brochures</label>
-                      {(editData.brochureLinks || workshop.brochureLinks || []).map((link, index) => (
-                        <div key={`brochure-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, brochureLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Brochure link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, brochureLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.brochureLinks || workshop.brochureLinks || [];
-                          setEditData({...editData, brochureLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Brochure Link
-                      </button>
-                    </div>
-                    
-                    {/* Circulars */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Circulars</label>
-                      {(editData.circularLinks || workshop.circularLinks || []).map((link, index) => (
-                        <div key={`circular-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, circularLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Circular link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, circularLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.circularLinks || workshop.circularLinks || [];
-                          setEditData({...editData, circularLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Circular Link
-                      </button>
-                    </div>
-                    
-                    {/* Photos */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Photos</label>
-                      {(editData.photosLinks || workshop.photosLinks || []).map((link, index) => (
-                        <div key={`photo-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, photosLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Photo link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, photosLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.photosLinks || workshop.photosLinks || [];
-                          setEditData({...editData, photosLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Photo Link
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Schedule & Participants */}
-                <div className="bg-gray-50 p-5 rounded-lg">
-                  <h4 className="font-medium text-lg mb-4">Schedule & Participants</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Schedule Links</label>
-                      {(editData.scheduleLinks || workshop.scheduleLinks || []).map((link, index) => (
-                        <div key={`schedule-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, scheduleLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Schedule link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, scheduleLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.scheduleLinks || workshop.scheduleLinks || [];
-                          setEditData({...editData, scheduleLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Schedule Link
-                      </button>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Participant Information</label>
-                      {(editData.participantInfo || workshop.participantInfo || []).map((info, index) => (
-                        <div key={`participant-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={info}
-                            onChange={(e) => {
-                              const newInfo = [...(editData.participantInfo || workshop.participantInfo)];
-                              newInfo[index] = e.target.value;
-                              setEditData({...editData, participantInfo: newInfo});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="e.g. Total:150 or CSE:50"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newInfo = [...(editData.participantInfo || workshop.participantInfo)];
-                              newInfo.splice(index, 1);
-                              setEditData({...editData, participantInfo: newInfo});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentInfo = editData.participantInfo || workshop.participantInfo || [];
-                          setEditData({...editData, participantInfo: [...currentInfo, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Participant Information
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Additional Information */}
-                <div className="bg-gray-50 p-5 rounded-lg">
-                  <h4 className="font-medium text-lg mb-4">Additional Information</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Permission Letters</label>
-                      {(editData.permissionLetterLinks || workshop.permissionLetterLinks || []).map((link, index) => (
-                        <div key={`permission-${index}`} className="flex items-center mb-2">
-                          <input
-                            type="text"
-                            value={link}
-                            onChange={(e) => {
-                              const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
-                              newLinks[index] = e.target.value;
-                              setEditData({...editData, permissionLetterLinks: newLinks});
-                            }}
-                            className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                            placeholder="Permission letter link"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
-                              newLinks.splice(index, 1);
-                              setEditData({...editData, permissionLetterLinks: newLinks});
-                            }}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentLinks = editData.permissionLetterLinks || workshop.permissionLetterLinks || [];
-                          setEditData({...editData, permissionLetterLinks: [...currentLinks, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add Permission Letter Link
-                      </button>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Users with Edit Access</label>
-                      <div className="mb-2 p-2 bg-gray-100 rounded-md text-sm">
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span>Creator ({workshop.editAccessUsers?.[0] || 'unknown'}) has permanent access</span>
-                        </div>
-                      </div>
-                      
-                      {(editData.editAccessUsers || workshop.editAccessUsers || [])
-                        .filter((user, idx) => idx > 0) // Skip the first user (creator)
-                        .map((user, index) => {
-                          // We adjust the index to account for the filtered first user
-                          const actualIndex = index + 1;
-                          return (
-                            <div key={`editor-${index}`} className="flex items-center mb-2">
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Event Posters</h5>
+                      <div className="space-y-4">
+                        {(editData.eventPosterLinks || workshop.eventPosterLinks || []).map((link, index) => (
+                          <div key={`poster-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
                               <input
                                 type="text"
-                                value={user}
+                                value={link}
                                 onChange={(e) => {
-                                  const newUsers = [...(editData.editAccessUsers || workshop.editAccessUsers)];
-                                  newUsers[actualIndex] = e.target.value;
-                                  setEditData({...editData, editAccessUsers: newUsers});
+                                  const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, eventPosterLinks: newLinks});
                                 }}
-                                className="flex-1 p-2 border border-gray-300 rounded-md mr-2"
-                                placeholder="Username"
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Poster link"
                               />
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const newUsers = [...(editData.editAccessUsers || workshop.editAccessUsers)];
-                                  newUsers.splice(actualIndex, 1);
-                                  setEditData({...editData, editAccessUsers: newUsers});
+                                  const newLinks = [...(editData.eventPosterLinks || workshop.eventPosterLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, eventPosterLinks: newLinks});
                                 }}
                                 className="p-1 text-red-500 hover:bg-red-50 rounded"
                               >
@@ -1465,45 +1178,732 @@ function EventDetails() {
                                 </svg>
                               </button>
                             </div>
-                          );
-                        })}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentUsers = editData.editAccessUsers || workshop.editAccessUsers || [];
-                          setEditData({...editData, editAccessUsers: [...currentUsers, '']});
-                        }}
-                        className="mt-1 flex items-center text-sm text-gray-700 hover:text-black"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add User with Edit Access
-                      </button>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('eventPosterLinks', index, url)} 
+                                fieldName="posters"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.eventPosterLinks || workshop.eventPosterLinks || [];
+                            setEditData({...editData, eventPosterLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Poster
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Registration Link</label>
-                      <input
-                        type="text"
-                        value={editData.registrationLink || workshop.registrationLink || ''}
-                        onChange={(e) => setEditData({...editData, registrationLink: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        placeholder="https://forms.example.com/register"
-                      />
-                    </div> */}
                     
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Feedback Link</label>
-                      <input
-                        type="text"
-                        value={editData.feedbackLink || workshop.feedbackLink || ''}
-                        onChange={(e) => setEditData({...editData, feedbackLink: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        placeholder="https://forms.example.com/feedback"
-                      />
+                    {/* Brochures */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Brochures</h5>
+                      <div className="space-y-4">
+                        {(editData.brochureLinks || workshop.brochureLinks || []).map((link, index) => (
+                          <div key={`brochure-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, brochureLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Brochure link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.brochureLinks || workshop.brochureLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, brochureLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('brochureLinks', index, url)} 
+                                fieldName="brochures"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.brochureLinks || workshop.brochureLinks || [];
+                            setEditData({...editData, brochureLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Brochure
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Circulars */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Circulars</h5>
+                      <div className="space-y-4">
+                        {(editData.circularLinks || workshop.circularLinks || []).map((link, index) => (
+                          <div key={`circular-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, circularLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Circular link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.circularLinks || workshop.circularLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, circularLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('circularLinks', index, url)} 
+                                fieldName="circulars"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                       
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.circularLinks || workshop.circularLinks || [];
+                            setEditData({...editData, circularLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Circular
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Schedules */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Schedules</h5>
+                      <div className="space-y-4">
+                        {(editData.scheduleLinks || workshop.scheduleLinks || []).map((link, index) => (
+                          <div key={`schedule-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, scheduleLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Schedule link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.scheduleLinks || workshop.scheduleLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, scheduleLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('scheduleLinks', index, url)} 
+                                fieldName="schedules"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.scheduleLinks || workshop.scheduleLinks || [];
+                            setEditData({...editData, scheduleLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Schedule
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Photos */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Photos</h5>
+                      <div className="space-y-4">
+                        {(editData.photosLinks || workshop.photosLinks || []).map((link, index) => (
+                          <div key={`photo-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, photosLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Photo link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.photosLinks || workshop.photosLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, photosLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('photosLinks', index, url)} 
+                                fieldName="photos"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.photosLinks || workshop.photosLinks || [];
+                            setEditData({...editData, photosLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Photo
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Permission Letters */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Permission Letters</h5>
+                      <div className="space-y-4">
+                        {(editData.permissionLetterLinks || workshop.permissionLetterLinks || []).map((link, index) => (
+                          <div key={`permission-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, permissionLetterLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Permission letter link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.permissionLetterLinks || workshop.permissionLetterLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, permissionLetterLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('permissionLetterLinks', index, url)} 
+                                fieldName="permission-letters"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.permissionLetterLinks || workshop.permissionLetterLinks || [];
+                            setEditData({...editData, permissionLetterLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Permission Letter
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Budget Data */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Budget Data</h5>
+                      <div className="space-y-4">
+                        {(editData.budgetDataLinks || workshop.budgetDataLinks || []).map((link, index) => (
+                          <div key={`budget-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, budgetDataLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Budget data link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, budgetDataLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('budgetDataLinks', index, url)} 
+                                fieldName="budget-data"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.budgetDataLinks || workshop.budgetDataLinks || [];
+                            setEditData({...editData, budgetDataLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Budget Data
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Participants Lists */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Participants Lists</h5>
+                      <div className="space-y-4">
+                        {(editData.participantsLinks || workshop.participantsLinks || []).map((link, index) => (
+                          <div key={`participants-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.participantsLinks || workshop.participantsLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, participantsLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Participants list link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.participantsLinks || workshop.participantsLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, participantsLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('participantsLinks', index, url)} 
+                                fieldName="participants-lists"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.participantsLinks || workshop.participantsLinks || [];
+                            setEditData({...editData, participantsLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Participants List
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Certificate Templates */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Certificate Templates</h5>
+                      <div className="space-y-4">
+                        {(editData.certificateLinks || workshop.certificateLinks || []).map((link, index) => (
+                          <div key={`certificate-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.certificateLinks || workshop.certificateLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, certificateLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Certificate template link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.certificateLinks || workshop.certificateLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, certificateLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('certificateLinks', index, url)} 
+                                fieldName="certificates"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.certificateLinks || workshop.certificateLinks || [];
+                            setEditData({...editData, certificateLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Certificate Template
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Resource Person Documents */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Resource Person Documents</h5>
+                      <div className="space-y-4">
+                        {(editData.resourcePersonDocLinks || workshop.resourcePersonDocLinks || []).map((link, index) => (
+                          <div key={`resource-doc-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.resourcePersonDocLinks || workshop.resourcePersonDocLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, resourcePersonDocLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Resource person document link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.resourcePersonDocLinks || workshop.resourcePersonDocLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, resourcePersonDocLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('resourcePersonDocLinks', index, url)} 
+                                fieldName="resource-person-docs"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.resourcePersonDocLinks || workshop.resourcePersonDocLinks || [];
+                            setEditData({...editData, resourcePersonDocLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Resource Person Document
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Attendance Sheets */}
+                    <div className="bg-white p-4 rounded-md">
+                      <h5 className="font-medium mb-3">Attendance Sheets</h5>
+                      <div className="space-y-4">
+                        {(editData.attendanceSheetLinks || workshop.attendanceSheetLinks || []).map((link, index) => (
+                          <div key={`attendance-${index}`} className="p-3 border border-gray-100 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={link}
+                                onChange={(e) => {
+                                  const newLinks = [...(editData.attendanceSheetLinks || workshop.attendanceSheetLinks)];
+                                  newLinks[index] = e.target.value;
+                                  setEditData({...editData, attendanceSheetLinks: newLinks});
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded-md"
+                                placeholder="Attendance sheet link"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...(editData.attendanceSheetLinks || workshop.attendanceSheetLinks)];
+                                  newLinks.splice(index, 1);
+                                  setEditData({...editData, attendanceSheetLinks: newLinks});
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2">
+                              <div className="text-sm text-gray-500 mb-1">OR</div>
+                              <FileUploadField 
+                                onUploadComplete={(url) => handleFileUploadComplete('attendanceSheetLinks', index, url)} 
+                                fieldName="attendance-sheets"
+                              />
+                            </div>
+                            
+                            {link && link.startsWith('http') && (
+                              <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
+                                  {link.split('/').pop() || 'View file'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentLinks = editData.attendanceSheetLinks || workshop.attendanceSheetLinks || [];
+                            setEditData({...editData, attendanceSheetLinks: [...currentLinks, '']});
+                          }}
+                          className="flex items-center text-sm text-gray-700 hover:text-black"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Attendance Sheet
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
