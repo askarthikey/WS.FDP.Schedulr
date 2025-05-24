@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 const BackendURL= import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 function Report() {
@@ -213,6 +216,90 @@ function Report() {
       );
     }
     return workshop.participantCount || '-';
+  };
+
+  // Export to PDF function
+  const exportToPDF = () => {
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Add title and metadata
+    const title = `Workshop Report ${yearFilter !== 'all' ? `- ${yearFilter}` : ''}${statusFilter !== 'all' ? ` (${statusFilter})` : ''}`;
+    doc.setFontSize(18);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, pageWidth/2, 15, { align: 'center' });
+    
+    // Add report generation info
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    const today = new Date().toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.text(`Generated on: ${today}`, pageWidth - 20, 10, { align: 'right' });
+    
+    // Format data for PDF
+    const tableData = filteredWorkshops.map(workshop => {
+      return [
+        workshop.eventTitle || '',
+        `${formatDate(workshop.eventStDate)}${workshop.eventEndDate && workshop.eventStDate !== workshop.eventEndDate ? ` to ${formatDate(workshop.eventEndDate)}` : ''}`,
+        workshop.eventOrganiserDetails ? workshop.eventOrganiserDetails.map(o => o.name).join(', ') : (workshop.organizedBy || '-'),
+        workshop.participantInfo ? workshop.participantInfo.join(', ') : (workshop.participantCount || '-'),
+        workshop.resourcePersonDetails ? workshop.resourcePersonDetails.map(p => p.name).join(', ') : '-'
+      ];
+    });
+    
+    // Create table with autoTable
+    autoTable(doc, {
+      head: [['Workshop Title', 'Date', 'Organizer', 'Participants', 'Resource Persons']],
+      body: tableData,
+      startY: 25,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        overflow: 'linebreak',
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [40, 40, 40],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      columnStyles: {
+        0: { cellWidth: 60 }, // Workshop title
+        1: { cellWidth: 35 }, // Date
+        2: { cellWidth: 40 }, // Organizer
+        3: { cellWidth: 40 }, // Participants
+        4: { cellWidth: 40 }  // Resource Persons
+      },
+      margin: { top: 25 }
+    });
+    
+    // Add filter information
+    let filterText = `Showing ${filteredWorkshops.length} of ${workshops.length} workshops`;
+    if (yearFilter !== 'all' || statusFilter !== 'all' || searchQuery) {
+      filterText += ' filtered by:';
+      if (yearFilter !== 'all') filterText += ` Year(${yearFilter})`;
+      if (statusFilter !== 'all') filterText += ` Status(${statusFilter})`;
+      if (searchQuery) filterText += ` Search("${searchQuery}")`;
+    }
+    
+    const finalY = doc.lastAutoTable.finalY || 280;
+    doc.setFontSize(10);
+    doc.text(filterText, 14, finalY + 10);
+    
+    // Add footer
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.text('FDP Schedulr - Workshop Management System', pageWidth/2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    
+    // Save PDF
+    doc.save(`Workshop_Report_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
   if (loading) {
@@ -600,21 +687,22 @@ function Report() {
         </div>
         
         {/* Export Options (Optional Enhancement) */}
-        {/* {filteredWorkshops.length > 0 && (
+        {filteredWorkshops.length > 0 && (
           <div className="mt-8 flex justify-end">
             <div className="inline-flex rounded-md shadow">
               <button
                 type="button"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                onClick={exportToPDF}
+                className="inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-200"
               >
                 <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Export Report
+                Export to PDF
               </button>
             </div>
           </div>
-        )} */}
+        )}
       </div>
     </div>
   );
