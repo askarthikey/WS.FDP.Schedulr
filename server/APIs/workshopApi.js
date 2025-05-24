@@ -61,8 +61,51 @@ const verifyToken = expressAsyncHandler(async (req, res, next) => {
   }
 });
 
+// Check if user has create access
+const verifyCreateAccess = expressAsyncHandler(async (req, res, next) => {
+  try {
+    // Admin always has create access
+    if (req.user.isAdmin === "true") {
+      return next();
+    }
+    
+    // Check if user has create access
+    if (!req.user.hasCreateAccess) {
+      return res.status(403).json({ 
+        message: "You don't have permission to create workshops. Please contact an administrator."
+      });
+    }
+    
+    // Check if create access has expired
+    if (req.user.createAccessExpiry) {
+      const expiryDate = new Date(req.user.createAccessExpiry);
+      const currentDate = new Date();
+      
+      if (currentDate > expiryDate) {
+        // Access has expired, update the user record
+        const usersCollection = req.app.get('usersCollection');
+        await usersCollection.updateOne(
+          { _id: req.user._id },
+          { $set: { hasCreateAccess: false, createAccessExpiry: null } }
+        );
+        
+        return res.status(403).json({ 
+          message: "Your workshop creation access has expired. Please contact an administrator to renew."
+        });
+      }
+    }
+    
+    next();
+  } catch (error) {
+    return res.status(500).json({ 
+      message: "Error checking create access permissions", 
+      error: error.message 
+    });
+  }
+});
+
 // Create a new workshop - Protected route
-workshopApp.post('/create', verifyToken, expressAsyncHandler(async(req, res) => {
+workshopApp.post('/create', verifyToken, verifyCreateAccess, expressAsyncHandler(async(req, res) => {
   const newWks = req.body;
   const workshopCollection = req.workshopCollection;
   
@@ -81,6 +124,16 @@ workshopApp.post('/create', verifyToken, expressAsyncHandler(async(req, res) => 
     }
     else {
       const result = await workshopCollection.insertOne(newWks);
+      
+      // Record this creation in the user's record if they're not an admin
+      if (req.user.isAdmin !== "true") {
+        const usersCollection = req.app.get('usersCollection');
+        await usersCollection.updateOne(
+          { _id: req.user._id },
+          { $inc: { workshopsCreated: 1 } }
+        );
+      }
+      
       return res.status(201).json({ message: "Workshop Created Successfully!!", id: result.insertedId });
     }
   } catch (error) {

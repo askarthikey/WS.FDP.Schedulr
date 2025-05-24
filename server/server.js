@@ -24,7 +24,7 @@ MongoClient.connect(process.env.DB_URL)
     app.set("workshopCollection", workshopCollection);
     
     // Set up daily cleanup job for expired access
-    setupDailyCleanup(workshopCollection);
+    setupDailyCleanup(workshopCollection, usersCollection);
     
     // Confirm db connection status
     console.log("DB connection successful!!");
@@ -32,14 +32,15 @@ MongoClient.connect(process.env.DB_URL)
   .catch(err => console.log("Error in connection of database", err.message));
 
 // Function to set up daily cleanup job
-function setupDailyCleanup(workshopCollection) {
+function setupDailyCleanup(workshopCollection, usersCollection) {
   // Schedule to run at midnight every day (00:00)
   cron.schedule('0 0 * * *', async () => {
     try {
-      console.log("Running daily cleanup for expired workshop access...");
+      console.log("Running daily cleanup...");
       const currentDate = new Date();
       
-      // Find all workshops that have accessExpiry field
+      // 1. Clean up workshop access expiry
+      console.log("Cleaning up expired workshop access...");
       const workshops = await workshopCollection.find({ accessExpiry: { $exists: true } }).toArray();
       
       for (const workshop of workshops) {
@@ -79,7 +80,24 @@ function setupDailyCleanup(workshopCollection) {
         }
       }
       
+      // 2. NEW: Clean up expired create access for users
+      console.log("Cleaning up expired create access for users...");
+      const result = await usersCollection.updateMany(
+        {
+          hasCreateAccess: true,
+          createAccessExpiry: { $exists: true, $lt: currentDate.toISOString() }
+        },
+        {
+          $set: {
+            hasCreateAccess: false,
+            createAccessExpiry: null
+          }
+        }
+      );
+      
+      console.log(`Revoked expired create access from ${result.modifiedCount} users`);
       console.log("Daily cleanup completed successfully");
+      
     } catch (error) {
       console.error("Error during daily cleanup:", error);
     }
@@ -87,6 +105,31 @@ function setupDailyCleanup(workshopCollection) {
   
   console.log("Daily cleanup job scheduled");
 }
+
+// Daily job to check and revoke expired create access
+const cronCreateAccessCleanup = cron.schedule('0 0 * * *', async () => {
+  try {
+    console.log("Running daily create access cleanup...");
+    const currentDate = new Date().toISOString();
+    
+    const result = await usersCollection.updateMany(
+      { 
+        hasCreateAccess: true,
+        createAccessExpiry: { $lt: currentDate } 
+      },
+      { 
+        $set: { 
+          hasCreateAccess: false,
+          createAccessExpiry: null
+        }
+      }
+    );
+    
+    console.log(`Revoked expired create access from ${result.modifiedCount} users`);
+  } catch (err) {
+    console.error("Error in create access cleanup job:", err);
+  }
+});
 
 app.use("/userApi", userApp);
 app.use("/workshopApi", workshopApp);

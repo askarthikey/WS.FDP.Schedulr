@@ -12,6 +12,7 @@ import Profile from './components/Profile';
 import ErrorPage from './components/ErrorPage';
 import CreateWorkshop from './components/CreateWorkshop';
 import ManageUsers from './components/ManageUsers';
+import CreateAccess from './components/CreateAccess';
 // import AccessControl from './components/AccessControl';
 
 function App() {
@@ -91,11 +92,11 @@ function App() {
           element: isAuthenticated ? <ManageUsers /> : <Navigate to="/signin" />,
           loader: protectedLoader
         },
-        //         {
-        //   path:'access-control',
-        //   element: isAuthenticated ? <AccessControl /> : <Navigate to="/signin" />,
-        //   loader: protectedLoader
-        // }
+                {
+          path:'access-control',
+          element: isAuthenticated ? <CreateAccess /> : <Navigate to="/signin" />,
+          loader: protectedLoader
+        }
       ]
     }
   ]);

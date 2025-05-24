@@ -105,20 +105,20 @@ function Header() {
                 </Link>
                 {currentUser.isAdmin === 'true' && (
                   <Link 
+                    to="/access-control" 
+                    className={`text-gray-700 hover:text-black px-3 py-2 text-sm font-medium ${isActive('/access-control')}`}
+                  >
+                    Create Control
+                  </Link>
+                )}
+                {currentUser.isAdmin === 'true' && (
+                  <Link 
                     to="/manage-users" 
                     className={`text-gray-700 hover:text-black px-3 py-2 text-sm font-medium ${isActive('/manage-users')}`}
                   >
                     Manage Users
                   </Link>
                 )}
-                {/* {currentUser.isAdmin === 'true' && (
-                  <Link 
-                    to="/access-control" 
-                    className={`text-gray-700 hover:text-black px-3 py-2 text-sm font-medium ${isActive('/access-control')}`}
-                  >
-                    Access Control
-                  </Link>
-                )} */}
               </>
             )}
           </div>

@@ -246,7 +246,7 @@ function Report() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Enhanced Header */}
+        {/* Enhanced Header
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl shadow-xl mb-8 overflow-hidden">
           <div className="px-6 py-8 sm:px-10 sm:py-12">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -266,7 +266,7 @@ function Report() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
         
         {/* Enhanced Filters Section */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8 transition-all duration-200 transform hover:shadow-lg">

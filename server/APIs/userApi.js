@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const expressAsyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 const bcryptjs = require("bcryptjs");
+const { ObjectId } = require("mongodb");
 
 dotenv.config();
 
@@ -237,6 +238,77 @@ userApp.put("/toggleBlockUser/:id", verifyToken, verifyAdmin, expressAsyncHandle
   
   res.status(200).json({ 
     message: `User ${isBlocked === "true" ? "blocked" : "unblocked"} successfully` 
+  });
+}));
+
+// Grant create access to a user (admin only)
+userApp.post("/grant-create-access/:id", verifyToken, verifyAdmin, expressAsyncHandler(async (req, res) => {
+  const usersCollection = req.usersCollection;
+  const userId = req.params.id;
+  const { expiryDate } = req.body; // Get expiry date from request body
+
+  // Find the user to update
+  const userToUpdate = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!userToUpdate) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Grant create access to the user with expiry date
+  const updateResult = await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: { 
+        hasCreateAccess: true,
+        createAccessExpiry: expiryDate || null  // Store expiry date or null if not provided
+      } 
+    }
+  );
+  
+  if (updateResult.modifiedCount === 0) {
+    return res.status(400).json({ message: "Could not grant create access" });
+  }
+  
+  res.status(200).json({ 
+    message: "Create access granted successfully",
+    user: {
+      ...userToUpdate, 
+      hasCreateAccess: true,
+      createAccessExpiry: expiryDate || null
+    }
+  });
+}));
+
+// Revoke create access from a user (admin only)
+userApp.post("/revoke-create-access/:id", verifyToken, verifyAdmin, expressAsyncHandler(async (req, res) => {
+  const usersCollection = req.usersCollection;
+  const userId = req.params.id;
+
+  // Find the user to update
+  const userToUpdate = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!userToUpdate) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Revoke create access from the user and clear expiry date
+  const updateResult = await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: { 
+        hasCreateAccess: false,
+        createAccessExpiry: null  // Clear the expiry date
+      }
+    }
+  );
+  
+  if (updateResult.modifiedCount === 0) {
+    return res.status(400).json({ message: "Could not revoke create access" });
+  }
+  
+  res.status(200).json({ 
+    message: "Create access revoked successfully",
+    user: {
+      ...userToUpdate, 
+      hasCreateAccess: false,
+      createAccessExpiry: null
+    }
   });
 }));
 
