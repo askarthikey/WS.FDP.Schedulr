@@ -676,7 +676,6 @@ const checkAccessExpiry = () => {
               </div>
             )}
           </div>
-          
           {/* Resources Section */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-bold mb-6">Resources</h2>
@@ -824,7 +823,7 @@ const checkAccessExpiry = () => {
                   </div>
                 </div>
               )}
-
+          
               {/* Permission Letters */}
               {workshop.permissionLetterLinks?.length > 0 && (
                 <div className="resource-card">
@@ -852,75 +851,146 @@ const checkAccessExpiry = () => {
                   </div>
                 </div>
               )}
-
+          
               {/* Budget Data */}
-              <div className="bg-white p-4 rounded-md">
-                <h5 className="font-medium mb-3">Budget Data</h5>
-                <div className="space-y-4">
-                  {(editData.budgetDataLinks || workshop.budgetDataLinks || []).map((link, index) => (
-                    <div key={`budget-${index}`} className="p-3 border border-gray-100 rounded-md">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <input
-                          type="text"
-                          value={link}
-                          onChange={(e) => {
-                            const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
-                            newLinks[index] = e.target.value;
-                            setEditData({...editData, budgetDataLinks: newLinks});
-                          }}
-                          className="flex-1 p-2 border border-gray-300 rounded-md"
-                          placeholder="Budget data link"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newLinks = [...(editData.budgetDataLinks || workshop.budgetDataLinks)];
-                            newLinks.splice(index, 1);
-                            setEditData({...editData, budgetDataLinks: newLinks});
-                          }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      
-                      <div className="mt-2">
-                        <div className="text-sm text-gray-500 mb-1">OR</div>
-                        <FileUploadField 
-                          onUploadComplete={(url) => handleFileUploadComplete('budgetDataLinks', index, url)} 
-                          fieldName="budget-data"
-                        />
-                      </div>
-                      
-                      {link && link.startsWith('http') && (
-                        <div className="mt-2 bg-gray-50 p-2 rounded flex items-center">
-                          <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 truncate hover:underline">
-                            {link.split('/').pop() || 'View file'}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentLinks = editData.budgetDataLinks || workshop.budgetDataLinks || [];
-                      setEditData({...editData, budgetDataLinks: [...currentLinks, '']});
-                    }}
-                    className="flex items-center text-sm text-gray-700 hover:text-black"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              {workshop.budgetDataLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Add Budget Data
-                  </button>
+                    Budget Data
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.budgetDataLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Budget Document {index + 1}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+          
+              {/* Participants Lists */}
+              {workshop.participantsLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Participants Lists
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.participantsLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Participants List {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+          
+              {/* Certificate Templates */}
+              {workshop.certificateLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    Certificate Templates
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.certificateLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Certificate Template {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+          
+              {/* Resource Person Documents */}
+              {workshop.resourcePersonDocLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Resource Person Documents
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.resourcePersonDocLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Resource Person Document {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+          
+              {/* Attendance Sheets */}
+              {workshop.attendanceSheetLinks?.length > 0 && (
+                <div className="resource-card">
+                  <h3 className="font-medium text-lg mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    Attendance Sheets
+                  </h3>
+                  <div className="space-y-2">
+                    {workshop.attendanceSheetLinks.map((link, index) => (
+                      <a 
+                        key={index}
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      >
+                        <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Attendance Sheet {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
